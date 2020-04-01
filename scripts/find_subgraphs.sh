@@ -1,3 +1,8 @@
+echo "Cleaning outputs/ and .temp/"
+rm -rf outputs/
+rm -rf .temp/
+rm -rf pdf/
+
 # takes in .json coreIR file, outputs grami_in.txt and op_types.txt
 echo "Starting .dot conversion..."
 python scripts/convert_dot.py $1
@@ -24,5 +29,5 @@ python scripts/convert_subgraphs_to_arch.py ./GraMi/Output.txt
 
 # Finds maximal independent set, looks at grami_in.txt and Output.txt
 echo "Starting maximal independent set analysis, this could take a while..."
-python scripts/find_maximal_ind_set.py
+python scripts/find_maximal_ind_set.py > ./outputs/subgraph_eval.txt
 echo "Finished maximal independent set analysis"

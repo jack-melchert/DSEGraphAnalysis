@@ -62,7 +62,7 @@ for idx, pat_graph in enumerate(graphs):
     res = nxaa.maximum_independent_set(newGraph)
 
     # print(res)
-    print("Index: ", idx)
+    print("PE: ", idx)
     print("Size of PE:" + str(len(pattern.nodes())))
     print("Num subgraphs:" + str(len(newGraph.nodes())))
     print("Num overlapping subgraphs:" + str(len(newGraph.nodes()) - len(res)))

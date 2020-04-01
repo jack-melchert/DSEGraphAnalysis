@@ -14,21 +14,20 @@ def sort_modules(modules):
                 output_modules.append(module)
                 modules.remove(module)
 
-            if "in0" in module:
-                if module["in0"] in ids:
+            if "in0" in module and "in1" in module:
+                if "in" in module["in0"] and "in" in module["in1"]:
                     ids.append(module["id"])
                     output_modules.append(module)
                     modules.remove(module)
-
-            if "in1" in module:
-                if module["in1"] in ids:
-                    if module in modules:
-                        ids.append(module["id"])
-                        output_modules.append(module)
-                        modules.remove(module)
-
-            if "in0" in module and "in1" in module:
-                if "in" in module["in0"] and "in" in module["in1"]:
+                elif module["in0"] in ids and "in" in module["in1"]:
+                    ids.append(module["id"])
+                    output_modules.append(module)
+                    modules.remove(module)
+                elif "in" in module["in0"] and module["in1"] in ids:
+                    ids.append(module["id"])
+                    output_modules.append(module)
+                    modules.remove(module)
+                elif module["in0"] in ids and module["in1"] in ids:
                     ids.append(module["id"])
                     output_modules.append(module)
                     modules.remove(module)
@@ -42,6 +41,7 @@ with open(".temp/op_types.txt") as file:
     op_types = ast.literal_eval(file.read())
 
 op_types = {str(v): k for k, v in op_types.items()}
+
 
 arches = []
 modules = {}
@@ -62,12 +62,21 @@ for line in lines:
         modules = {}
         ids = []
         connected_ids = []
+        used_alu_ops = []
         
     elif 'v' in line:
         # Node id : line.split()[1], type : op_types[line.split()[2]]
         modules[line.split()[1]] = {}
         modules[line.split()[1]]["id"] = line.split()[1]
-        modules[line.split()[1]]["type"] = op_types[line.split()[2]].replace('coreir.','').replace('add','alu')
+        
+        op = op_types[line.split()[2]]
+
+        if op == "mul" or op == "alu" or op == "const":
+            modules[line.split()[1]]["type"] = op
+        else:
+            print("Warning: possible unsupported ALU operation found in subgraph:", op)
+            modules[line.split()[1]]["type"] = op.replace(op,'alu')
+
         ids.append(line.split()[1])
     elif 'e' in line:
         # import pdb; pdb.set_trace()
@@ -87,6 +96,7 @@ arch["input_width"] = 16
 arch["output_width"] = 16
 arch["enable_input_regs"] = False
 arch["enable_output_regs"] = False
+
 
 if not os.path.exists('outputs'):
     os.makedirs('outputs')
