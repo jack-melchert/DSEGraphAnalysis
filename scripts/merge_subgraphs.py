@@ -36,7 +36,6 @@ def ConstructCompatibilityGraph(g1, g2):
         gb.add_node(g2_map[u] + ', ' + g2_map[v], type='edge', node0=g2_map[u], node1=g2_map[v], op0=g2.node[u]['op'], op1=g2.node[v]['op'], port=p, bipartite=1)
 
 
-    
 
     comm_ops =  ["and", "or", "xor", "add", "eq", "mul"]
 
@@ -259,37 +258,36 @@ def ReconstructResultingGraph(c, g1, g2):
         plt.show()
     return g
 
-
 def sort_modules(modules):
     ids = []
 
     output_modules = []
     while len(modules) > 0:
-        for module in modules:
+        # print(len(modules))
+        # pdb.set_trace()
+        for module in modules.copy():
             if module['type'] == 'const':
                 ids.append(module["id"])
                 output_modules.append(module)
                 modules.remove(module)
+                
 
             if "in0" in module and "in1" in module:
-                if "in" in module["in0"] and "in" in module["in1"]:
-                    ids.append(module["id"])
-                    output_modules.append(module)
-                    modules.remove(module)
-                elif module["in0"] in ids and "in" in module["in1"]:
-                    ids.append(module["id"])
-                    output_modules.append(module)
-                    modules.remove(module)
-                elif "in" in module["in0"] and module["in1"] in ids:
-                    ids.append(module["id"])
-                    output_modules.append(module)
-                    modules.remove(module)
-                elif module["in0"] in ids and module["in1"] in ids:
+                inorder = True
+                
+                for in0_item in module["in0"]:
+                    inorder = inorder and ("in" in in0_item or in0_item in ids)
+
+                for in1_item in module["in1"]:
+                    inorder = inorder and ("in" in in1_item or in1_item in ids)
+
+                if inorder:
                     ids.append(module["id"])
                     output_modules.append(module)
                     modules.remove(module)
 
     return output_modules
+
 
 def merged_subgraph_to_arch(subgraph):
 
@@ -352,10 +350,10 @@ def merged_subgraph_to_arch(subgraph):
     for module in arch["modules"]:
         if not module['type'] == 'const':
             if 'in0' not in module:
-                module["in0"] = "in" + str(input_counter)
+                module["in0"] = ["in" + str(input_counter)]
                 input_counter += 1
             if 'in1' not in module:
-                module["in1"] = "in" + str(input_counter)
+                module["in1"] = ["in" + str(input_counter)]
                 input_counter += 1
 
     arch["modules"] = sort_modules(arch["modules"])
@@ -364,16 +362,87 @@ def merged_subgraph_to_arch(subgraph):
         write_file.write(json.dumps(arch, indent = 4, sort_keys=True))
 
 
-# with open(".temp/grami_in.txt") as file:
-#     lines = file.readlines()
+def construct_eq(in0, in1, op):
+    
+# ["not", "and", "or", "xor", "shl", "lshr", "ashr", "neg", "add", "sub", "sle", "sge", "ule", "uge", "eq", "mux", "slt", "sgt", "ult", "ugt"]
 
-# graph = nx.DiGraph()
-# for line in lines:
-#     if 'v' in line:
-#         graph.add_node(line.split()[1], type=line.split()[2])
-#     elif 'e' in line:
-#         graph.add_edge(line.split()[1], line.split()[2], port=line.split()[3])
+    op_str_map = {}
 
+    op_str_map["not"] = "~in0"
+    op_str_map["and"] = "in0 & in1"
+    op_str_map["or"] = "in0 | in1"
+    op_str_map["xor"] = "in0 ^ in1"
+    op_str_map["shl"] = "in0 << in1"
+    op_str_map["lshr"] = "in0 >> in1"
+    op_str_map["ashr"] = "in0 >> in1"
+    op_str_map["neg"] = "-in0"
+    op_str_map["add"] = "in0 + in1"
+    op_str_map["sub"] = "in0 - in1"
+    op_str_map["sle"] = "Bit(1) if in0 <= in1 else Bit(0)"
+    op_str_map["sge"] = "Bit(1) if in0 >= in1 else Bit(0)"
+    op_str_map["ule"] = "Bit(1) if in0 <= in1 else Bit(0)"
+    op_str_map["uge"] = "Bit(1) if in0 >= in1 else Bit(0)"
+    op_str_map["eq"] = "Bit(1) if in0 == in1 else Bit(0)"
+    op_str_map["mux"] = "return in0 if in2 == Bit(0) else in1"
+    op_str_map["slt"] = "Bit(1) if in0 < bin1else Bit(0)"
+    op_str_map["sgt"] = "Bit(1) if in0 > bin1else Bit(0)"
+    op_str_map["ult"] = "Bit(1) if in0 < bin1else Bit(0)"
+    op_str_map["ugt"] = "Bit(1) if in0 > bin1else Bit(0)"
+
+    eq = ""
+    
+    "(" + str(eq_dict.get(data['0'], data['0'])) + " " + data['op'] + " " + str(eq_dict.get(data['1'], data['1'])) + ")"
+    return eq
+
+def subgraph_to_peak(subgraph):
+
+    node_dict = {}
+    input_idx = 0
+    const_idx = 0
+    for n, d in subgraph.nodes.data(True):
+        
+        # print("\nnode:", n, subgraph.nodes[n])
+
+        pred = {}
+        pred['op'] = op_types[subgraph.nodes[n]['op']]
+        if op_types[subgraph.nodes[n]['op']] == 'const':
+            pred[str(0)] = "const" + str(const_idx)
+            const_idx += 1
+        else:
+            for s in subgraph.pred[n]:
+                # print("\tpred:", s, subgraph.nodes[s])
+                # print("\t\tedge:", s, n, subgraph.edges[(s, n)])
+                pred[subgraph.edges[(s, n)]['port']] = s
+
+            if not '0' in pred:
+                pred['0'] = "in" + str(input_idx)
+                
+
+            if not '1' in pred:
+                pred['1'] = "in" + str(input_idx)
+                input_idx += 1
+            
+            
+        node_dict[n] = pred
+
+    # print(node_dict)
+
+
+
+    eq_dict = {}
+
+    while len(node_dict) > 0:
+        for node, data in node_dict.copy().items():
+            if data['op'] == 'const':
+                eq_dict[node] = data['0']
+                node_dict.pop(node)
+            else:
+                if ("in" in data['0'] or data['0'] in eq_dict) and ("in" in data['1'] or data['1'] in eq_dict):
+                    eq_dict[node] = "(" + str(eq_dict.get(data['0'], data['0'])) + " " + data['op'] + " " + str(eq_dict.get(data['1'], data['1'])) + ")"
+                    last_eq = eq_dict[node]
+                    node_dict.pop(node)
+
+    print("\n" + last_eq + "\n")
 DEBUG = False
 
 with open(".temp/grami_out.txt") as file:
@@ -396,6 +465,11 @@ with open(".temp/op_types.txt") as file:
     op_types_flipped = ast.literal_eval(file.read())
 
 op_types = {str(v): k for k, v in op_types_flipped.items()}
+
+
+# for graph in graphs:
+#     subgraph_to_peak(graph)
+subgraph_to_peak(graphs[0])
 
 # graphs.reverse()
 
@@ -429,21 +503,21 @@ for i in range(1, len(graphs)):
 
 # plt.show()
 
-g = G
-groups = set(nx.get_node_attributes(g,'op').values())
-mapping = dict(zip(sorted(groups),count()))
-nodes = g.nodes()
-colors = [mapping[g.node[n]['op']] for n in nodes]
-labels={}
-for n in nodes:
-    labels[n] = op_types[g.node[n]['op']]
+# g = G
+# groups = set(nx.get_node_attributes(g,'op').values())
+# mapping = dict(zip(sorted(groups),count()))
+# nodes = g.nodes()
+# colors = [mapping[g.node[n]['op']] for n in nodes]
+# labels={}
+# for n in nodes:
+#     labels[n] = op_types[g.node[n]['op']]
 
-pos = nx.nx_agraph.graphviz_layout(g, prog='dot')
-ec = nx.draw_networkx_edges(g, pos, alpha=1, width=2)
-nc = nx.draw_networkx_nodes(g, pos, node_list = nodes, node_color=colors, 
-                            with_labels=False, node_size=500, cmap=plt.cm.Pastel1, alpha = 1)
-nx.draw_networkx_labels(g, pos, labels, font_size=8)
+# pos = nx.nx_agraph.graphviz_layout(g, prog='dot')
+# ec = nx.draw_networkx_edges(g, pos, alpha=1, width=2)
+# nc = nx.draw_networkx_nodes(g, pos, node_list = nodes, node_color=colors, 
+#                             with_labels=False, node_size=500, cmap=plt.cm.Pastel1, alpha = 1)
+# nx.draw_networkx_labels(g, pos, labels, font_size=8)
 
-plt.show()
+# plt.show()
 
-merged_subgraph_to_arch(g)
+merged_subgraph_to_arch(G)
