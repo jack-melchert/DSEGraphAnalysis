@@ -74,9 +74,9 @@ for ind, instances in enumerate(instance_files):
                 node1 = instance_names[conn[1].split('.', 1)[0]]
 
                 if "out" in conn[0].split('.', 1)[1]: 
-                    out_file.write('e ' + str(node0) + ' ' + str(node1) + ' ' + conn[1].split('.', 1)[1].replace('in', '').replace('sel', '0') +'\n')
+                    out_file.write('e ' + str(node0) + ' ' + str(node1) + ' ' + conn[1].split('.', 1)[1].replace('in', '').replace('sel', '2') +'\n')
                 else:
-                    out_file.write('e ' + str(node1) + ' ' + str(node0) + ' ' + conn[0].split('.', 1)[1].replace('in', '').replace('sel', '0') +'\n')
+                    out_file.write('e ' + str(node1) + ' ' + str(node0) + ' ' + conn[0].split('.', 1)[1].replace('in', '').replace('sel', '2') +'\n')
 
 
 with open('.temp/op_types.txt', 'w') as op_types_out_file:
