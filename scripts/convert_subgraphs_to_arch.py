@@ -42,6 +42,8 @@ with open(".temp/op_types.txt") as file:
 
 op_types = {str(v): k for k, v in op_types.items()}
 
+alu_supported_ops =  ["not", "and", "or", "xor", "shl", "lshr", "ashr", "neg", "add", "sub", "sle", "sge", "ule", "uge", "eq", "mux", "slt", "sgt", "ult", "ugt"]
+
 
 arches = []
 modules = {}
@@ -71,7 +73,7 @@ for line in lines:
         
         op = op_types[line.split()[2]]
 
-        if op == "mul" or op == "alu" or op == "const":
+        if op == "mul" or op == "const" or op in alu_supported_ops:
             modules[line.split()[1]]["type"] = op
         else:
             print("Warning: possible unsupported ALU operation found in subgraph:", op)
@@ -82,10 +84,14 @@ for line in lines:
         # import pdb; pdb.set_trace()
         # Edge from line.split()[1] to line.split()[2]
         connected_ids.append(line.split()[1])
-        if 'in0' in modules[line.split()[2]]:
-            modules[line.split()[2]]["in1"] = line.split()[1]
-        else:
+        if line.split()[3] == "0":
             modules[line.split()[2]]["in0"] = line.split()[1]
+        else:
+            modules[line.split()[2]]["in1"] = line.split()[1]
+        # if 'in0' in modules[line.split()[2]]:
+        #     modules[line.split()[2]]["in1"] = line.split()[1]
+        # else:
+        #     modules[line.split()[2]]["in0"] = line.split()[1]
     
 
 arch["modules"] = [v for v in modules.values()]
