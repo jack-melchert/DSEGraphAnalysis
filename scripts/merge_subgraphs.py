@@ -1,8 +1,9 @@
-import networkx as nx
 from itertools import count, combinations
-import matplotlib.pyplot as plt
 from networkx.drawing import nx_agraph
 from networkx.algorithms import bipartite
+
+import networkx as nx
+import matplotlib.pyplot as plt
 import pulp
 import sys
 import ast
@@ -10,9 +11,30 @@ import math
 import os
 import json
 import copy
+import importlib
+
+from hwtypes import BitVector, Tuple, Bit
+from peak import family
+from peak import Peak, family_closure
+from peak.mapper import ArchMapper
+from peak.mapper.utils import pretty_print_binding
+from peak.family import AbstractFamily
+from peak.mapper import RewriteRule
+from peak.assembler.assembled_adt import  AssembledADT
+from peak.assembler.assembler import Assembler
+from peak_gen.sim import arch_closure
+from peak_gen.arch import read_arch
+from peak_gen.isa import inst_arch_closure
+from peak_gen.asm import asm_fc
+from peak_gen.config import config_arch_closure
+from peak_gen.enables import enables_arch_closure
+from peak_gen.alu import ALU_t, Signed_t
+from peak_gen.mul import MUL_t
+import magma as m
+import shutil 
 
 
-def AddInputAndOutputNodes(g):
+def add_input_and_output_nodes(g):
     node_dict = {}
     input_idx = 0
     const_idx = 0
@@ -54,7 +76,7 @@ def RemoveInputAndOutputNodes(g):
     return ret_g
 
 
-def ConstructCompatibilityGraph(g1, g2):
+def construct_compatibility_graph(g1, g2):
 
     gb = nx.Graph()
     g1_map = {}
@@ -448,8 +470,9 @@ def FindMaximumWeightClique(gc):
     return C
 
 
-def ReconstructResultingGraph(c, g1, g2, g1_map, g2_map):
+def reconsruct_resulting_graph(c, g1, g2, g1_map, g2_map):
     b = {}
+
     for (i, j) in c:
         if len(i.split(", ")) > 1:
             b[g2_map[j.split(", ")[0]] + ", " +
@@ -617,12 +640,12 @@ def merged_subgraph_to_arch(subgraph):
     arch["modules"] = [v for v in modules.values()]
     arch["outputs"] = [i for i in ids if i not in connected_ids]
 
-    if not os.path.exists('outputs'):
-        os.makedirs('outputs')
+    if not os.path.exists('scripts/subgraph_archs'):
+        os.makedirs('scripts/subgraph_archs')
 
     arch["modules"] = sort_modules(arch["modules"])
 
-    with open("outputs/subgraph_arch_merged.json", "w") as write_file:
+    with open("scripts/subgraph_archs/subgraph_arch_merged.json", "w") as write_file:
         write_file.write(json.dumps(arch, indent=4, sort_keys=True))
 
     return arch
@@ -723,7 +746,10 @@ def mapping_function_fc(family: AbstractFamily):
     return mapping_function
 '''
 
-    with open("outputs/peak_eq_" + str(sub_idx) + ".py", "w") as write_file:
+    if not os.path.exists('scripts/peak_eqs'):
+        os.makedirs('scripts/peak_eqs')
+
+    with open("scripts/peak_eqs/peak_eq_" + str(sub_idx) + ".py", "w") as write_file:
         write_file.write(peak_output)
 
     return ret_val
@@ -741,7 +767,10 @@ def gen_rewrite_rule(subgraph, merged_graph, b, node_dict):
     return rr
 
 
-def WriteRewriteRule(rrules, merged_arch):
+def formulate_rewrite_rules(rrules, merged_arch):
+
+    complete_rr = []
+
     for sub_idx, rrule in enumerate(rrules):
         rr_output = {}
         rr_tuple = []
@@ -818,7 +847,7 @@ def WriteRewriteRule(rrules, merged_arch):
                     if module["type"] == "alu":
                         alu.append("add")
                     elif module["type"] == "mul":
-                        mul.append("Mult0")
+                        mul.append("Mult0") 
 
                     if len(module["in0"]) > 1:
                         mux_in0.append(0)
@@ -856,17 +885,163 @@ def WriteRewriteRule(rrules, merged_arch):
         rr_tuple.append([0, ["config_data", "config_bit2"]])
         rr_tuple.append([0, ["config_addr",]])
         rr_tuple.append([1, ["config_en",]])
-        rr_output['tuple'] = rr_tuple
-        rr_output['alu'] = alu
-        rr_output['mul'] = mul
-        rr_output['mux_in0'] = mux_in0
-        rr_output['mux_in1'] = mux_in1
 
-        with open("outputs/subgraph_rr_" + str(sub_idx) + ".json",
-                  "w") as write_file:
-            write_file.write(json.dumps(rr_output))
+        input_binding = []
+
+        for i in rr_tuple:
+            if i[1][0] == "config_addr":
+                i[0] = BitVector[8](int(i[0]))
+            elif i[1][0] == "config_en" or i[1][0] == "enables":
+                i[0] = Bit(int(i[0]))
+            elif i[1][0] == "config_data":
+                if "config_bit" in i[1][1]:
+                    i[0] = Bit(int(i[0]))
+                elif i[0] == 0:
+                    i[0] = BitVector[16](i[0])
+            elif i[1][0] == "inputs":
+                if i[0][0] == 0: 
+                    i[0] = BitVector[16](i[0])
+
+            if isinstance(i[0], list): 
+                input_binding.append(tuple([(i[0][0],), tuple(i[1])]))
+            else:
+                input_binding.append(tuple([i[0], tuple(i[1])]))
+
+        arch = read_arch("./scripts/subgraph_archs/subgraph_arch_merged.json")
+        PE_fc = arch_closure(arch)
+        Inst_fc = inst_arch_closure(arch)
+        Inst = Inst_fc(family.PyFamily())
+        arch_mapper = ArchMapper(PE_fc)
+    
+
+        inst_type = PE_fc(family.PyFamily()).input_t.field_dict["inst"]
+
+        _assembler = Assembler(inst_type)
+        assembler = _assembler.assemble
+
+        asm_arch_closure = asm_fc(family.PyFamily())
+
+        gen_inst = asm_arch_closure(arch)
+        op_map = {}
+
+        op_map["Mult0"] = MUL_t.Mult0
+        op_map["Mult1"] = MUL_t.Mult1
+        op_map["not"] = ALU_t.Sub  
+        op_map["and"] = ALU_t.And    
+        op_map["or"] = ALU_t.Or    
+        op_map["xor"] = ALU_t.XOr    
+        op_map["shl"] = ALU_t.SHL   
+        op_map["lshr"] = ALU_t.SHR    
+        op_map["ashr"] = ALU_t.SHR    
+        op_map["neg"] = ALU_t.Sub   
+        op_map["add"] = ALU_t.Add    
+        op_map["sub"] = ALU_t.Sub    
+        op_map["sle"] = ALU_t.LTE_Min    
+        op_map["sge"] = ALU_t.GTE_Max     
+        op_map["ule"] = ALU_t.LTE_Min   
+        op_map["uge"] = ALU_t.GTE_Max    
+        op_map["eq"] = ALU_t.Sub    
+        op_map["slt"] = ALU_t.LTE_Min   
+        op_map["sgt"] = ALU_t.GTE_Max  
+        op_map["ult"] = ALU_t.LTE_Min    
+        op_map["ugt"] = ALU_t.GTE_Max    
+
+        alu = [op_map[n] for n in alu]
+        mul = [op_map[n] for n in mul]
+
+        mux_in0_bw = [m.math.log2_ceil(len(arch.modules[i].in0)) for i in range(len(arch.modules)) if len(arch.modules[i].in0) > 1]
+        mux_in1_bw = [m.math.log2_ceil(len(arch.modules[i].in1)) for i in range(len(arch.modules)) if len(arch.modules[i].in1) > 1]
+
+        mux_in0 = [BitVector[mux_in0_bw[i]](n) for i, n in enumerate(mux_in0)]
+        mux_in1 = [BitVector[mux_in1_bw[i]](n) for i, n in enumerate(mux_in1)]
+
+        inst_gen = gen_inst(alu=alu, mul=mul, mux_in0=mux_in0, mux_in1=mux_in1)
+        input_binding.append((assembler(inst_gen), ("inst",)))
+
+        complete_rr.append(input_binding)
+
+    return complete_rr
 
 
+def test_rewrite_rules(rrules):
+    arch = read_arch("./scripts/subgraph_archs/subgraph_arch_merged.json")
+    PE_fc = arch_closure(arch)
+    Inst_fc = inst_arch_closure(arch)
+    Inst = Inst_fc(family.PyFamily())
+    arch_mapper = ArchMapper(PE_fc)
+ 
+
+    inst_type = PE_fc(family.PyFamily()).input_t.field_dict["inst"]
+
+    _assembler = Assembler(inst_type)
+    assembler = _assembler.assemble
+
+    asm_arch_closure = asm_fc(family.PyFamily())
+
+    gen_inst = asm_arch_closure(arch)
+
+    for rr_ind, rrule in enumerate(rrules):
+        
+        input_binding = rrule
+
+        if DEBUG:
+            for i in input_binding:
+                print(i)
+
+        output_binding = [((0,), ('PE_res',0))]
+
+
+        peak_eq = importlib.import_module("peak_eqs.peak_eq_" + str(rr_ind))
+
+        print("Checking rewrite rule ", rr_ind)
+
+        rr = RewriteRule(input_binding, output_binding, peak_eq.mapping_function_fc, PE_fc)
+
+
+        counter_example = rr.verify()
+
+
+        if counter_example is None:
+            print("Passed rewrite rule verify")
+        else:
+            print("Failed rewrite rule verify")
+            print(counter_example)
+            print("Trying to solve for rewrite rule")
+            ir_mapper = arch_mapper.process_ir_instruction(peak_eq.mapping_function_fc)
+
+            solution = ir_mapper.run_efsmt()
+
+            if solution is None: 
+                print("No solution found")
+            else:
+                print("New rewrite rule solution found")
+                rrules[rr_ind] = solution.ibinding
+
+
+def write_rewrite_rules(rrules):
+    for sub_idx, rrule in enumerate(rrules):
+        rrule_out = []
+        for t in rrule:
+            if isinstance(t[0], BitVector):
+                rrule_out.append(tuple([{'type':'BitVector', 'width':len(t[0]), 'value':t[0].value}, t[1]]))
+            elif isinstance(t[0], Bit):
+                rrule_out.append(tuple([{'type':'Bit', 'width':1, 'value':t[0]._value}, t[1]]))
+            else:
+                rrule_out.append(t)
+
+        if not os.path.exists('scripts/subgraph_rewrite_rules'):
+            os.makedirs('scripts/subgraph_rewrite_rules')
+
+        with open("scripts/subgraph_rewrite_rules/subgraph_rr_" + str(sub_idx) + ".json", "w") as write_file:
+            write_file.write(json.dumps(rrule_out))
+
+def clean_output_dirs():
+    shutil.rmtree("scripts/subgraph_rewrite_rules") 
+    shutil.rmtree("scripts/subgraph_archs")
+    shutil.rmtree("scripts/peak_eqs")  
+
+
+clean_output_dirs()
 graph_inds = []
 
 if len(sys.argv) > 1:
@@ -920,34 +1095,35 @@ graphs = [graphs[int(i)] for i in graph_inds]
 graphs_no_input_nodes = copy.deepcopy(graphs)
 
 for graph in graphs:
-    AddInputAndOutputNodes(graph)
+    add_input_and_output_nodes(graph)
 
 rrules = []
 
 G = graphs[0]
 
 for i in range(1, len(graphs)):
-    gc, g1_map, g2_map = ConstructCompatibilityGraph(G, graphs[i])
+    gc, g1_map, g2_map = construct_compatibility_graph(G, graphs[i])
 
     C = FindMaximumWeightClique(gc)
 
+    print("subgraph ", i)
+    G, new_mapping = reconsruct_resulting_graph(C, G, graphs[i], g1_map, g2_map)
+
     if i == 1:
         print("subgraph ", 0)
-        G, new_mapping = ReconstructResultingGraph(C, G, graphs[0], g1_map,
-                                                   g2_map)
-        node_dict = subgraph_to_peak(graphs[0], 0, new_mapping)
+        new_mapping_0 = {k:k for k in graphs[0].nodes}
+        new_mapping_0.update({u + ", " + v:u + ", " + v for (u,v) in graphs[0].edges})
+        node_dict = subgraph_to_peak(graphs[0], 0, new_mapping_0)
         rrules.append(
-            gen_rewrite_rule(graphs_no_input_nodes[0], G, new_mapping,
-                             node_dict))
+            gen_rewrite_rule(graphs_no_input_nodes[0], G, new_mapping_0, node_dict))
         print()
 
-    print("subgraph ", i)
-    G, new_mapping = ReconstructResultingGraph(C, G, graphs[i], g1_map, g2_map)
-
     node_dict = subgraph_to_peak(graphs[i], i, new_mapping)
-    rrules.append(
-        gen_rewrite_rule(graphs_no_input_nodes[i], G, new_mapping, node_dict))
+    rrules.append(gen_rewrite_rule(graphs_no_input_nodes[i], G, new_mapping, node_dict))
+
     print()
 
 merged_arch = merged_subgraph_to_arch(G)
-WriteRewriteRule(rrules, merged_arch)
+complete_rr = formulate_rewrite_rules(rrules, merged_arch)
+test_rewrite_rules(complete_rr)
+write_rewrite_rules(complete_rr)
