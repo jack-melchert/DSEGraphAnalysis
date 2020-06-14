@@ -26,8 +26,6 @@ from peak_gen.sim import arch_closure
 from peak_gen.arch import read_arch
 from peak_gen.isa import inst_arch_closure
 from peak_gen.asm import asm_fc
-from peak_gen.config import config_arch_closure
-from peak_gen.enables import enables_arch_closure
 from peak_gen.alu import ALU_t, Signed_t
 from peak_gen.mul import MUL_t
 import magma as m
@@ -604,7 +602,11 @@ def merged_subgraph_to_arch(subgraph, op_types):
     connected_ids = []
 
     for n, d in subgraph.nodes.data(True):
+
+        # Don't want to put input and output nodes in actual arch
         if d["op"] != "output" and d["op"] != "const_input":
+
+            # Only want id of input nodes
             if d["op"] != "input":
                 modules[n] = {}
                 modules[n]["id"] = n
@@ -697,6 +699,7 @@ def subgraph_to_peak(subgraph, sub_idx, b, op_types):
 
     ret_val = node_dict.copy()
     args_str = ""
+    consts_str = ""
     eq_dict = {}
     inputs = set()
 
@@ -705,19 +708,20 @@ def subgraph_to_peak(subgraph, sub_idx, b, op_types):
             if data['alu_op'] == 'const':
                 eq_dict[node] = data['0']
                 node_dict.pop(node)
-                args_str += data['0'] + " : Data, "
+                consts_str += data['0'] + " = 17; "
+                # args_str += data['0'] + " : Data, "
             else:
                 if ("in" in data['0']
                         or data['0'] in eq_dict) and ("in" in data['1']
-                                                      or data['1'] in eq_dict):
+                                                        or data['1'] in eq_dict):
                     eq_dict[node] = construct_eq(
                         str(eq_dict.get(data['0'], data['0'])),
                         str(eq_dict.get(data['1'], data['1'])), data['alu_op'])
                     last_eq = eq_dict[node]
                     node_dict.pop(node)
-
                 if "in" in data['1']:
                     inputs.add(data['1'])
+
             if "in" in data['0']:
                 inputs.add(data['0'])
 
@@ -740,7 +744,7 @@ def mapping_function_fc(family: AbstractFamily):
     @family.assemble(locals(), globals())
     class mapping_function(Peak):
         def __call__(self, ''' + args_str + ''') -> Data:
-            
+            '''+ consts_str +'''
             return ''' + last_eq + '''
       
     return mapping_function
@@ -1013,9 +1017,19 @@ def test_rewrite_rules(rrules):
 
             if solution is None: 
                 print("No solution found")
+                return rr_ind
             else:
                 print("New rewrite rule solution found")
                 rrules[rr_ind] = solution.ibinding
+
+    return -1
+
+def resolve_rr_gen_fail(sub_ind, mappings, subgraphs, merged_graph):
+
+    subgraph = subgraphs[sub_ind]
+
+    print("This is not supported yet")
+    exit()
 
 
 def write_rewrite_rules(rrules):
@@ -1045,7 +1059,6 @@ def clean_output_dirs():
 
 def merge_subgraphs(file_ind_pairs):
     clean_output_dirs()
-
 
     with open(".temp/op_types.txt") as file:
         op_types_flipped = ast.literal_eval(file.read())
@@ -1095,6 +1108,7 @@ def merge_subgraphs(file_ind_pairs):
     rrules = []
 
     G = graphs[0]
+    mappings = []
 
     for i in range(1, len(graphs)):
         gc, g1_map, g2_map = construct_compatibility_graph(G, graphs[i], op_types, op_types_flipped)
@@ -1111,15 +1125,26 @@ def merge_subgraphs(file_ind_pairs):
             node_dict = subgraph_to_peak(graphs[0], 0, new_mapping_0, op_types)
             rrules.append(
                 gen_rewrite_rule(graphs_no_input_nodes[0], G, new_mapping_0, node_dict))
+            mappings.append(new_mapping_0)
             print()
 
+        mappings.append(new_mapping)
         node_dict = subgraph_to_peak(graphs[i], i, new_mapping, op_types)
         rrules.append(gen_rewrite_rule(graphs_no_input_nodes[i], G, new_mapping, node_dict))
 
         print()
 
+
     merged_arch = merged_subgraph_to_arch(G, op_types)
     complete_rr = formulate_rewrite_rules(rrules, merged_arch)
-    test_rewrite_rules(complete_rr)
+    rr_test_res = test_rewrite_rules(complete_rr)
+
+    while rr_test_res != -1:
+
+        resolve_rr_gen_fail(rr_test_res, mappings, graphs, G)
+        merged_arch = merged_subgraph_to_arch(G, op_types)
+        complete_rr = formulate_rewrite_rules(rrules, merged_arch)
+        rr_test_res = test_rewrite_rules(complete_rr)
+
     write_rewrite_rules(complete_rr)
 DEBUG = False
