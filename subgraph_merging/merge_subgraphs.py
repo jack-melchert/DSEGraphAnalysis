@@ -22,10 +22,10 @@ from peak.family import AbstractFamily
 from peak.mapper import RewriteRule
 from peak.assembler.assembled_adt import  AssembledADT
 from peak.assembler.assembler import Assembler
-from peak_gen.sim import arch_closure
-from peak_gen.arch import read_arch
+from peak_gen.sim import pe_arch_closure
+from peak_gen.arch import read_arch, graph_arch
 from peak_gen.isa import inst_arch_closure
-from peak_gen.asm import asm_fc
+from peak_gen.asm import asm_arch_closure
 from peak_gen.alu import ALU_t, Signed_t
 from peak_gen.mul import MUL_t
 import magma as m
@@ -592,6 +592,10 @@ def merged_subgraph_to_arch(subgraph, op_types):
         "ugt"
     ]
 
+    bit_output_ops = [
+        "sle", "sge", "ule", "uge", "eq", "slt", "sgt", "ult", "ugt"
+    ]
+
     arch = {}
     arch["input_width"] = 16
     arch["output_width"] = 16
@@ -600,6 +604,7 @@ def merged_subgraph_to_arch(subgraph, op_types):
     modules = {}
     ids = []
     connected_ids = []
+    bit_outputs = []
 
     for n, d in subgraph.nodes.data(True):
 
@@ -622,6 +627,9 @@ def merged_subgraph_to_arch(subgraph, op_types):
                             op)
                     modules[n]["type"] = op.replace(op, 'alu')
 
+                if op in bit_output_ops:
+                    bit_outputs.append(n)
+
             ids.append(n)
 
     for u, v, d in subgraph.edges.data(True):
@@ -641,6 +649,7 @@ def merged_subgraph_to_arch(subgraph, op_types):
 
     arch["modules"] = [v for v in modules.values()]
     arch["outputs"] = [i for i in ids if i not in connected_ids]
+    arch["bit_outputs"] = [i for i in bit_outputs if i not in connected_ids]
 
     if not os.path.exists('outputs/subgraph_archs'):
         os.makedirs('outputs/subgraph_archs')
@@ -653,7 +662,7 @@ def merged_subgraph_to_arch(subgraph, op_types):
     return arch
 
 
-def construct_eq(in0, in1, op, in2=""):
+def construct_eq(in0, in1, op):
 
     op_str_map = {}
 
@@ -673,14 +682,12 @@ def construct_eq(in0, in1, op, in2=""):
     op_str_map["ule"] = "(Bit(1) if in_0 <= in_1 else Bit(0))"
     op_str_map["uge"] = "(Bit(1) if in_0 >= in_1 else Bit(0))"
     op_str_map["eq"] = "(Bit(1) if in_0 == in_1 else Bit(0))"
-    op_str_map["mux"] = "(in_0 if in_2 == Bit(0) else in_1)"
     op_str_map["slt"] = "(Bit(1) if in_0 < in_1 else Bit(0))"
     op_str_map["sgt"] = "(Bit(1) if in_0 > in_1 else Bit(0))"
     op_str_map["ult"] = "(Bit(1) if in_0 < in_1 else Bit(0))"
     op_str_map["ugt"] = "(Bit(1) if in_0 > in_1 else Bit(0))"
 
-    return op_str_map[op].replace("in_0", in0).replace("in_1", in1).replace(
-        "in_2", in2)
+    return op_str_map[op].replace("in_0", in0).replace("in_1", in1)
 
 
 def subgraph_to_peak(subgraph, sub_idx, b, op_types):
@@ -708,7 +715,7 @@ def subgraph_to_peak(subgraph, sub_idx, b, op_types):
             if data['alu_op'] == 'const':
                 eq_dict[node] = data['0']
                 node_dict.pop(node)
-                consts_str += data['0'] + " = 17; "
+                consts_str += data['0'] + " = family.BitVector[16](17); "
                 # args_str += data['0'] + " : Data, "
             else:
                 if ("in" in data['0']
@@ -841,10 +848,10 @@ def formulate_rewrite_rules(rrules, merged_arch):
                         input_mappings[in_idx] = v['1']
                         seen_inputs.append(v['1'])
 
-                elif module["type"] == "const":
-                    rr_tuple.append([[v['0'], ""],
-                                     ["config_data", "config_data", cfg_idx]])
-                    cfg_idx += 1
+                # elif module["type"] == "const":
+                #     rr_tuple.append([[v['0'], ""],
+                #                      ["config_data", "config_data", cfg_idx]])
+                #     cfg_idx += 1
 
             else:
                 if module["type"] == "alu" or module["type"] == "mul":
@@ -875,33 +882,26 @@ def formulate_rewrite_rules(rrules, merged_arch):
                                 input_mappings[in_idx] = 0
                                 seen_inputs.append(mux_in)
 
-                elif module["type"] == "const":
-                    rr_tuple.append(
-                        [0, ["config_data", "config_data", cfg_idx]])
-                    cfg_idx += 1
+                # elif module["type"] == "const":
+                #     rr_tuple.append(
+                #         [0, ["config_data", "config_data", cfg_idx]])
+                #     cfg_idx += 1
 
         for k, v in input_mappings.items():
             rr_tuple.append([[v, ""], ["inputs", k]])
 
-        rr_tuple.append([1, ["enables", "clk_en"]])
-        rr_tuple.append([0, ["config_data", "config_bit0"]])
-        rr_tuple.append([0, ["config_data", "config_bit1"]])
-        rr_tuple.append([0, ["config_data", "config_bit2"]])
-        rr_tuple.append([0, ["config_addr",]])
-        rr_tuple.append([1, ["config_en",]])
+        rr_tuple.append([1, ["clk_en"]])
+        rr_tuple.append([0, ["bit_inputs", 0]])
+        rr_tuple.append([0, ["bit_inputs", 1]])
+        rr_tuple.append([0, ["bit_inputs", 2]])
+        # rr_tuple.append([0, ["config_addr",]])
+        # rr_tuple.append([1, ["config_en",]])
 
         input_binding = []
 
         for i in rr_tuple:
-            if i[1][0] == "config_addr":
-                i[0] = BitVector[8](int(i[0]))
-            elif i[1][0] == "config_en" or i[1][0] == "enables":
+            if i[1][0] == "clk_en" or i[1][0] == "bit_inputs":
                 i[0] = Bit(int(i[0]))
-            elif i[1][0] == "config_data":
-                if "config_bit" in i[1][1]:
-                    i[0] = Bit(int(i[0]))
-                elif i[0] == 0:
-                    i[0] = BitVector[16](i[0])
             elif i[1][0] == "inputs":
                 if i[0][0] == 0: 
                     i[0] = BitVector[16](i[0])
@@ -912,20 +912,20 @@ def formulate_rewrite_rules(rrules, merged_arch):
                 input_binding.append(tuple([i[0], tuple(i[1])]))
 
         arch = read_arch("./outputs/subgraph_archs/subgraph_arch_merged.json")
-        PE_fc = arch_closure(arch)
+        PE_fc = pe_arch_closure(arch)
         Inst_fc = inst_arch_closure(arch)
-        Inst = Inst_fc(family.PyFamily())
+        Inst = Inst_fc.Py
         arch_mapper = ArchMapper(PE_fc)
     
 
-        inst_type = PE_fc(family.PyFamily()).input_t.field_dict["inst"]
+        inst_type = PE_fc.Py.input_t.field_dict["inst"]
 
         _assembler = Assembler(inst_type)
         assembler = _assembler.assemble
 
-        asm_arch_closure = asm_fc(family.PyFamily())
+        asm_fc = asm_arch_closure(arch) 
 
-        gen_inst = asm_arch_closure(arch)
+        gen_inst = asm_fc.Py
         op_map = {}
 
         op_map["Mult0"] = MUL_t.Mult0
@@ -959,7 +959,9 @@ def formulate_rewrite_rules(rrules, merged_arch):
         mux_in0 = [BitVector[mux_in0_bw[i]](n) for i, n in enumerate(mux_in0)]
         mux_in1 = [BitVector[mux_in1_bw[i]](n) for i, n in enumerate(mux_in1)]
 
-        inst_gen = gen_inst(alu=alu, mul=mul, mux_in0=mux_in0, mux_in1=mux_in1)
+        const = [BitVector[16](17) for _ in range(arch.num_const_inputs)]
+
+        inst_gen = gen_inst(alu=alu, mul=mul, mux_in0=mux_in0, mux_in1=mux_in1, const=const)
         input_binding.append((assembler(inst_gen), ("inst",)))
 
         complete_rr.append(input_binding)
@@ -969,7 +971,8 @@ def formulate_rewrite_rules(rrules, merged_arch):
 
 def test_rewrite_rules(rrules):
     arch = read_arch("./outputs/subgraph_archs/subgraph_arch_merged.json")
-    PE_fc = arch_closure(arch)
+    graph_arch(arch)
+    PE_fc = pe_arch_closure(arch)
     Inst_fc = inst_arch_closure(arch)
     Inst = Inst_fc(family.PyFamily())
     arch_mapper = ArchMapper(PE_fc)
@@ -980,9 +983,8 @@ def test_rewrite_rules(rrules):
     _assembler = Assembler(inst_type)
     assembler = _assembler.assemble
 
-    asm_arch_closure = asm_fc(family.PyFamily())
-
-    gen_inst = asm_arch_closure(arch)
+    asm_fc = asm_arch_closure(arch)
+    gen_inst = asm_fc(family.PyFamily())
 
     for rr_ind, rrule in enumerate(rrules):
         
@@ -992,7 +994,7 @@ def test_rewrite_rules(rrules):
             for i in input_binding:
                 print(i)
 
-        output_binding = [((0,), ('PE_res',0))]
+        output_binding = [((0,), ('pe_outputs',0))]
 
 
         peak_eq = importlib.import_module("outputs.peak_eqs.peak_eq_" + str(rr_ind))
@@ -1013,7 +1015,7 @@ def test_rewrite_rules(rrules):
             print("Trying to solve for rewrite rule")
             ir_mapper = arch_mapper.process_ir_instruction(peak_eq.mapping_function_fc)
 
-            solution = ir_mapper.run_efsmt()
+            solution = ir_mapper.solve(external_loop=True)
 
             if solution is None: 
                 print("No solution found")
