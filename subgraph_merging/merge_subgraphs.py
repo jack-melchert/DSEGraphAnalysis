@@ -12,6 +12,7 @@ import os
 import json
 import copy
 import importlib
+import time
 
 from hwtypes import BitVector, Tuple, Bit
 from peak import family
@@ -22,12 +23,13 @@ from peak.family import AbstractFamily
 from peak.mapper import RewriteRule
 from peak.assembler.assembled_adt import  AssembledADT
 from peak.assembler.assembler import Assembler
-from peak_gen.sim import pe_arch_closure
+from peak_gen.sim import wrapped_pe_arch_closure
 from peak_gen.arch import read_arch, graph_arch
 from peak_gen.isa import inst_arch_closure
 from peak_gen.asm import asm_arch_closure
 from peak_gen.alu import ALU_t, Signed_t
 from peak_gen.mul import MUL_t
+import peak
 import magma as m
 import shutil 
 
@@ -41,7 +43,7 @@ def add_input_and_output_nodes(g, op_types):
         if not op_types[d["op"]] == "const":
             pred = {}
             for s in g.pred[n]:
-                pred[g.edges[(s, n)]['port']] = s
+                pred[g.edges[(s, n, 0)]['port']] = s
             if '0' not in pred:
                 g.add_node("in" + str(input_idx), op="input", alu_op="input")
                 g.add_edge("in" + str(input_idx), n, port='0')
@@ -72,6 +74,7 @@ def RemoveInputAndOutputNodes(g):
             d.pop('0', None)
     ret_g.remove_node("out0")
     return ret_g
+
 
 
 def construct_compatibility_graph(g1, g2, op_types, op_types_flipped):
@@ -129,8 +132,8 @@ def construct_compatibility_graph(g1, g2, op_types, op_types_flipped):
             port=p,
             bipartite=1)
 
-    # comm_ops =  ["and", "or", "xor", "add", "eq", "mul", "alu"]
-    comm_ops = []
+    comm_ops =  ["and", "or", "xor", "add", "eq", "mul", "alu"]
+    # comm_ops = []
     left_nodes = [(n, d) for n, d in gb.nodes(data=True)
                   if d['bipartite'] == 0]
     right_nodes = [(n, d) for n, d in gb.nodes(data=True)
@@ -143,20 +146,18 @@ def construct_compatibility_graph(g1, g2, op_types, op_types_flipped):
                     gb.add_edge(n0, n1)
             elif d0['type'] == 'edge' and d1['type'] == 'edge':
                 if d0['op0'] == d1['op0'] and d0['op1'] == d1['op1']:
-                    if not (op_types[d0['alu_op1']] in comm_ops
-                            and op_types[d1['alu_op1']] in comm_ops):
-                        # print("non-commutative:",op_types[d0['op1']], op_types[d1['op1']])
-                        if d0['port'] == d1['port']:
-                            gb.add_edge(n0, n1)
-                    else:
-                        # print("commutative:",op_types[d0['op1']], op_types[d1['op1']])
+                    if d0['port'] == d1['port']:
                         gb.add_edge(n0, n1)
+                    else:
+                        if op_types[d1['alu_op1']] in comm_ops or op_types[d0['alu_op1']] in comm_ops:
+                            gb.add_edge(n0, n1)
 
+            
     if DEBUG:
 
         plt.subplot(1, 4, 1)
         plt.margins(0.2)
-        g = RemoveInputAndOutputNodes(g1)
+        g = g1
         groups1 = set(nx.get_node_attributes(g1, 'op').values())
         groups2 = set(nx.get_node_attributes(g2, 'op').values())
         groups = groups1.union(groups2)
@@ -179,7 +180,7 @@ def construct_compatibility_graph(g1, g2, op_types, op_types_flipped):
         nc = nx.draw_networkx_nodes(
             g,
             pos,
-            node_list=nodes,
+            node_list=nodes, 
             node_color=colors,
             with_labels=False,
             node_size=1500,
@@ -188,7 +189,7 @@ def construct_compatibility_graph(g1, g2, op_types, op_types_flipped):
 
         plt.subplot(1, 4, 2)
         plt.margins(0.2)
-        g = RemoveInputAndOutputNodes(g2)
+        g = g2
         nodes = g.nodes()
         colors = [plt.cm.Pastel1(mapping[g.node[n]['op']]) for n in nodes]
 
@@ -216,13 +217,13 @@ def construct_compatibility_graph(g1, g2, op_types, op_types_flipped):
 
         plot_gb = gb.copy()
 
-        for n, d in plot_gb.copy().nodes.data(True):
-            if "op" in d:
-                if d["op"] == "input" or d["op"] == "output" or d["op"] == "const_input":
-                    plot_gb.remove_node(n)
-            else:
-                if d["op0"] == "input" or d["op1"] == "input" or d["op0"] == "output" or d["op1"] == "output" or d["op0"] == "const_input" or d["op1"] == "const_input":
-                    plot_gb.remove_node(n)
+        # for n, d in plot_gb.copy().nodes.data(True):
+        #     if "op" in d:
+        #         if d["op"] == "input" or d["op"] == "output" or d["op"] == "const_input":
+        #             plot_gb.remove_node(n)
+        #     else:
+        #         if d["op0"] == "input" or d["op1"] == "input" or d["op0"] == "output" or d["op1"] == "output" or d["op0"] == "const_input" or d["op1"] == "const_input":
+        #             plot_gb.remove_node(n)
 
         plt.subplot(1, 4, 3)
 
@@ -265,12 +266,13 @@ def construct_compatibility_graph(g1, g2, op_types, op_types_flipped):
                     True)[u]['op'] == "output" or gb.nodes.data(
                         True)[u]['op'] == "const_input":
                 in_or_out = True
+            gc.add_node(i, start=u, end=v, weight=weight, in_or_out=in_or_out)
         else:
             weight = 30
             d = gb.nodes.data(True)[u]
             if d["op0"] == "input" or d["op1"] == "input" or d["op0"] == "output" or d["op1"] == "output" or d["op0"] == "const_input" or d["op1"] == "const_input":
                 in_or_out = True
-        gc.add_node(i, start=u, end=v, weight=weight, in_or_out=in_or_out)
+            gc.add_node(i, start=u, end=v, weight=weight, in_or_out=in_or_out, start_port=gb.nodes.data(True)[u]["port"], end_port=gb.nodes.data(True)[v]["port"])
 
     for pair in combinations(gc.nodes.data(True), 2):
         if ", " in pair[0][1]['start'] and ", " in pair[1][1]['start']:
@@ -284,6 +286,17 @@ def construct_compatibility_graph(g1, g2, op_types, op_types_flipped):
             end_1_0 = pair[1][1]['end'].split(", ")[0]
             end_1_1 = pair[1][1]['end'].split(", ")[1]
 
+            start_0_1_port = pair[0][1]['start_port']
+            start_1_1_port = pair[1][1]['start_port']
+            end_0_1_port = pair[0][1]['end_port']
+            end_1_1_port = pair[1][1]['end_port']
+
+            # (a0, a1) -> (b0, b1)
+            # (a2, a3) -> (b2, b3)
+
+            # (start_0_0, start_0_1) -> (end_0_0, end_0_1)
+            # (start_1_0, start_1_1) -> (end_1_0, end_1_1)
+
             if start_0_0 == start_1_0:
                 if end_0_0 == end_1_0:
                     gc.add_edge(pair[0][0], pair[1][0])
@@ -295,7 +308,8 @@ def construct_compatibility_graph(g1, g2, op_types, op_types_flipped):
                     gc.add_edge(pair[0][0], pair[1][0])
             elif start_0_1 == start_1_1:
                 if end_0_1 == end_1_1:
-                    gc.add_edge(pair[0][0], pair[1][0])
+                    if start_0_1_port == end_0_1_port and end_1_1_port == start_1_1_port:
+                        gc.add_edge(pair[0][0], pair[1][0])
             elif not (end_0_0 == end_1_0 or end_0_0 == end_1_1
                       or end_0_1 == end_1_0 or end_0_1 == end_1_1):
                 gc.add_edge(pair[0][0], pair[1][0])
@@ -346,9 +360,9 @@ def construct_compatibility_graph(g1, g2, op_types, op_types_flipped):
 
         plot_gc = gc.copy()
 
-        for n, d in plot_gc.copy().nodes.data(True):
-            if d["in_or_out"]:
-                plot_gc.remove_node(n)
+        # for n, d in plot_gc.copy().nodes.data(True):
+        #     if d["in_or_out"]:
+        #         plot_gc.remove_node(n)
 
         plt.subplot(1, 4, 4)
         starts = nx.get_node_attributes(plot_gc, 'start')
@@ -467,9 +481,19 @@ def FindMaximumWeightClique(gc):
 
     return C
 
+def swap_ports(subgraph, dest_node):
+    # Find all predecessors of dest_node in subgraph
+    for s in subgraph.pred[dest_node]:
+        if subgraph.edges[(s, dest_node, 0)]['port'] == "0":
+            subgraph.edges[(s, dest_node, 0)]['port'] = "1"
+        else:
+            subgraph.edges[(s, dest_node, 0)]['port'] = "0"
 
-def reconsruct_resulting_graph(c, g1, g2, g1_map, g2_map):
+        # print(s, subgraph.nodes.data(True)[s], dest_node, subgraph.nodes.data(True)[dest_node], subgraph.edges[(s, dest_node, 0)])
+
+def reconsruct_resulting_graph(c, g1, g2, g1_map, g2_map, op_types):
     b = {}
+
 
     for (i, j) in c:
         if len(i.split(", ")) > 1:
@@ -478,6 +502,25 @@ def reconsruct_resulting_graph(c, g1, g2, g1_map, g2_map):
                   ", ")[0]] + ", " + g1_map[i.split(", ")[1]]
         else:
             b[g2_map[j]] = g1_map[i]
+
+    comm_ops =  ["and", "or", "xor", "add", "eq", "mul", "alu"]
+
+    for k,v in b.items():
+        if "," in k:
+            g2u = k.split(", ")[0]
+            g2v = k.split(", ")[1]
+            g1u = v.split(", ")[0]
+            g1v = v.split(", ")[1]
+            if g1.edges[(g1u, g1v, 0)]['port'] != g2.edges[(g2u, g2v, 0)]['port'] and (g1u, g1v, 1) not in g1.edges:
+                if op_types[g2.nodes.data(True)[g2v]['alu_op']] in comm_ops:
+                    swap_ports(g2, g2v)
+                elif op_types[g1.nodes.data(True)[g1v]['alu_op']] in comm_ops:
+                    swap_ports(g1, g1v)
+                    breakpoint()
+                
+                else:
+                    print("Oops, something went wrong")
+                    exit()
 
     g = g1.copy()
 
@@ -508,9 +551,11 @@ def reconsruct_resulting_graph(c, g1, g2, g1_map, g2_map):
                 b[n] = str(idx)
                 idx += 1
 
+
     for u, v, d in g2.edges.data(True):
         if not str(u) + ", " + str(v) in b:
             g.add_edge(b[u], b[v], port=d['port'])
+
 
     if DEBUG:
         graphs = [g1, g2, g]
@@ -518,9 +563,7 @@ def reconsruct_resulting_graph(c, g1, g2, g1_map, g2_map):
 
             ret_g = g.copy()
 
-            for n, d in ret_g.copy().nodes.data(True):
-                if d["op"] == "const_input":
-                    ret_g.remove_node(n)
+
 
             plt.subplot(1, 3, i + 1)
             groups = set(nx.get_node_attributes(ret_g, 'op').values())
@@ -632,6 +675,8 @@ def merged_subgraph_to_arch(subgraph, op_types):
 
             ids.append(n)
 
+    outputs = set()
+
     for u, v, d in subgraph.edges.data(True):
         if v in modules:
             connected_ids.append(u)
@@ -641,14 +686,19 @@ def merged_subgraph_to_arch(subgraph, op_types):
                         modules[v]["in0"].append(u)
                     else:
                         modules[v]["in0"] = [u]
-                else:
+                elif d["port"] == "1":
                     if "in1" in modules[v]:
                         modules[v]["in1"].append(u)
                     else:
                         modules[v]["in1"] = [u]
+        
+        # Add to output mux
+        if subgraph.nodes.data(True)[v]["op"] == "output":
+            outputs.add(u)
+
 
     arch["modules"] = [v for v in modules.values()]
-    arch["outputs"] = [i for i in ids if i not in connected_ids]
+    arch["outputs"] = [list(outputs)]
     arch["bit_outputs"] = [i for i in bit_outputs if i not in connected_ids]
 
     if not os.path.exists('outputs/subgraph_archs'):
@@ -693,30 +743,30 @@ def construct_eq(in0, in1, op):
 def subgraph_to_peak(subgraph, sub_idx, b, op_types):
     node_dict = {}
 
+
     for n, d in subgraph.nodes.data(True):
         if op_types[subgraph.nodes[n]['alu_op']] != "input" \
-            and op_types[subgraph.nodes[n]['alu_op']] != "const_input" \
-            and op_types[subgraph.nodes[n]['alu_op']] != "output":
+            and op_types[subgraph.nodes[n]['alu_op']] != "const_input":
 
             pred = {}
             pred['alu_op'] = op_types[subgraph.nodes[n]['alu_op']]
             for s in subgraph.pred[n]:
-                pred[subgraph.edges[(s, n)]['port']] = b[s]
+                pred[subgraph.edges[(s, n, 0)]['port']] = b[s]
             node_dict[b[n]] = pred
 
     ret_val = node_dict.copy()
     args_str = ""
-    consts_str = ""
     eq_dict = {}
     inputs = set()
 
     while len(node_dict) > 0:
         for node, data in node_dict.copy().items():
-            if data['alu_op'] == 'const':
+            if data['alu_op'] == 'output':
+                node_dict.pop(node)
+            elif data['alu_op'] == 'const':
                 eq_dict[node] = data['0']
                 node_dict.pop(node)
-                consts_str += data['0'] + " = family.BitVector[16](17); "
-                # args_str += data['0'] + " : Data, "
+                args_str += data['0'] + " : Const(Data), "
             else:
                 if ("in" in data['0']
                         or data['0'] in eq_dict) and ("in" in data['1']
@@ -740,7 +790,7 @@ def subgraph_to_peak(subgraph, sub_idx, b, op_types):
     args_str = args_str[:-2]
 
     peak_output = '''
-from peak import Peak, family_closure
+from peak import Peak, family_closure, Const
 from peak import family
 from peak.family import AbstractFamily
 
@@ -751,7 +801,7 @@ def mapping_function_fc(family: AbstractFamily):
     @family.assemble(locals(), globals())
     class mapping_function(Peak):
         def __call__(self, ''' + args_str + ''') -> Data:
-            '''+ consts_str +'''
+  
             return ''' + last_eq + '''
       
     return mapping_function
@@ -766,28 +816,34 @@ def mapping_function_fc(family: AbstractFamily):
     return ret_val
 
 
-def gen_rewrite_rule(subgraph, merged_graph, b, node_dict):
+def gen_rewrite_rule(node_dict):
     rr = {}
     for k, v in node_dict.items():
         rr[k] = {}
         rr[k]['0'] = v['0']
-        if not v['alu_op'] == "const":
+        if not (v['alu_op'] == "const" or v['alu_op'] == "output"):
             rr[k]['1'] = v['1']
         rr[k]['alu_op'] = v['alu_op']
-    print("rr", rr)
+
+    # print(rr)
     return rr
 
 
 def formulate_rewrite_rules(rrules, merged_arch):
 
-    complete_rr = []
+    rrules_out = []
+
+    arch = read_arch("./outputs/subgraph_archs/subgraph_arch_merged.json")
+    graph_arch(arch)
+    PE_fc = wrapped_pe_arch_closure(arch)
+    arch_mapper = ArchMapper(PE_fc)
+
 
     for sub_idx, rrule in enumerate(rrules):
         rr_output = {}
-        rr_tuple = []
-        cfg_idx = 0
-        input_idx = 0
+      
         input_mappings = {}
+        const_mappings = {}
         seen_inputs = []
 
         alu = []
@@ -795,6 +851,7 @@ def formulate_rewrite_rules(rrules, merged_arch):
         mux_in0 = []
         mux_in1 = []
         mux_out = []
+        cfg_idx = 0
 
         for module in merged_arch["modules"]:
             if module["id"] in rrule:
@@ -848,10 +905,11 @@ def formulate_rewrite_rules(rrules, merged_arch):
                         input_mappings[in_idx] = v['1']
                         seen_inputs.append(v['1'])
 
-                # elif module["type"] == "const":
-                #     rr_tuple.append([[v['0'], ""],
-                #                      ["config_data", "config_data", cfg_idx]])
-                #     cfg_idx += 1
+                elif module["type"] == "const":
+                    # cfg_idx = int(v['0'].split("const")[1])
+                    const_mappings[cfg_idx] = v['0']
+                    cfg_idx += 1
+
 
             else:
                 if module["type"] == "alu" or module["type"] == "mul":
@@ -882,50 +940,31 @@ def formulate_rewrite_rules(rrules, merged_arch):
                                 input_mappings[in_idx] = 0
                                 seen_inputs.append(mux_in)
 
-                # elif module["type"] == "const":
-                #     rr_tuple.append(
-                #         [0, ["config_data", "config_data", cfg_idx]])
-                #     cfg_idx += 1
+                elif module["type"] == "const":
+                    const_mappings[cfg_idx] = 0
+                    cfg_idx += 1
+            
 
-        for k, v in input_mappings.items():
-            rr_tuple.append([[v, ""], ["inputs", k]])
-
-        rr_tuple.append([1, ["clk_en"]])
-        rr_tuple.append([0, ["bit_inputs", 0]])
-        rr_tuple.append([0, ["bit_inputs", 1]])
-        rr_tuple.append([0, ["bit_inputs", 2]])
-        # rr_tuple.append([0, ["config_addr",]])
-        # rr_tuple.append([1, ["config_en",]])
+        
+        output_id = rrule["out0"]["0"]
+        if len(arch.outputs[0]) > 1:
+            mux_out.append(arch.outputs[0].index(output_id))
 
         input_binding = []
 
-        for i in rr_tuple:
-            if i[1][0] == "clk_en" or i[1][0] == "bit_inputs":
-                i[0] = Bit(int(i[0]))
-            elif i[1][0] == "inputs":
-                if i[0][0] == 0: 
-                    i[0] = BitVector[16](i[0])
-
-            if isinstance(i[0], list): 
-                input_binding.append(tuple([(i[0][0],), tuple(i[1])]))
+        for k, v in input_mappings.items():
+            if v == 0:
+                input_binding.append((peak.mapper.utils.Unbound, ("inputs", k)))
             else:
-                input_binding.append(tuple([i[0], tuple(i[1])]))
+                input_binding.append(((v,), ("inputs", k)))
 
-        arch = read_arch("./outputs/subgraph_archs/subgraph_arch_merged.json")
-        PE_fc = pe_arch_closure(arch)
-        Inst_fc = inst_arch_closure(arch)
-        Inst = Inst_fc.Py
-        arch_mapper = ArchMapper(PE_fc)
-    
+        for k, v in const_mappings.items():
+            if v == 0:
+                input_binding.append((peak.mapper.utils.Unbound, ("inst", "const_data", k)))
+            else:
+                input_binding.append(((v,), ("inst", "const_data", k)))
 
-        inst_type = PE_fc.Py.input_t.field_dict["inst"]
 
-        _assembler = Assembler(inst_type)
-        assembler = _assembler.assemble
-
-        asm_fc = asm_arch_closure(arch) 
-
-        gen_inst = asm_fc.Py
         op_map = {}
 
         op_map["Mult0"] = MUL_t.Mult0
@@ -956,26 +995,64 @@ def formulate_rewrite_rules(rrules, merged_arch):
         mux_in0_bw = [m.math.log2_ceil(len(arch.modules[i].in0)) for i in range(len(arch.modules)) if len(arch.modules[i].in0) > 1]
         mux_in1_bw = [m.math.log2_ceil(len(arch.modules[i].in1)) for i in range(len(arch.modules)) if len(arch.modules[i].in1) > 1]
 
-        mux_in0 = [BitVector[mux_in0_bw[i]](n) for i, n in enumerate(mux_in0)]
-        mux_in1 = [BitVector[mux_in1_bw[i]](n) for i, n in enumerate(mux_in1)]
+        breakpoint()
 
-        const = [BitVector[16](17) for _ in range(arch.num_const_inputs)]
+        mux_in0_asmd = [BitVector[mux_in0_bw[i]](n) for i, n in enumerate(mux_in0)]
+        mux_in1_asmd = [BitVector[mux_in1_bw[i]](n) for i, n in enumerate(mux_in1)]
 
-        inst_gen = gen_inst(alu=alu, mul=mul, mux_in0=mux_in0, mux_in1=mux_in1, const=const)
-        input_binding.append((assembler(inst_gen), ("inst",)))
+        mux_out_bw = [m.math.log2_ceil(len(arch.outputs[i])) for i in range(arch.num_outputs) if len(arch.outputs[i]) > 1]
+        mux_out_asmd = [BitVector[mux_out_bw[i]](n) for i, n in enumerate(mux_out)]
 
-        complete_rr.append(input_binding)
 
-    return complete_rr
+        # inst_gen = gen_inst(alu=alu, mul=mul, mux_in0=mux_in0, mux_in1=mux_in1, mux_out=mux_out)
+        # input_binding.append((assembler(inst_gen), ("inst",)))
+
+        # constraint = {}
+
+        for ind, a in enumerate(alu):
+            input_binding.append((a, ("inst", "alu", ind)))
+            input_binding.append((BitVector[5](0), ("inst", "cond", ind)))
+
+        for ind, a in enumerate(mul):
+            input_binding.append((a, ("inst", "mul", ind)))
+
+        for ind, a in enumerate(mux_in0_asmd):
+            input_binding.append((a, ("inst", "mux_in0", ind)))
+
+        for ind, a in enumerate(mux_in1_asmd):
+            input_binding.append((a, ("inst", "mux_in1", ind)))
+
+        for ind, a in enumerate(mux_out_asmd):
+            input_binding.append((a, ("inst", "mux_out", ind)))
+
+        input_binding.append((BitVector[1](0), ('inst', 'signed')))
+        input_binding.append((BitVector[8](0), ('inst', 'lut')))
+
+
+
+        constrained_vars = {"inst", "inputs"}
+
+        for i in arch_mapper.input_varmap:
+            if i[0] not in constrained_vars:
+                input_binding.append((peak.mapper.utils.Unbound, i))
+
+        new_rrule = {}
+
+        # constraints.append(constraint)
+        new_rrule["ibinding"] = input_binding
+
+        new_rrule["obinding"] = [((0,), ('pe_outputs', 0))]
+
+        rrules_out.append(new_rrule)
+
+    return rrules_out
 
 
 def test_rewrite_rules(rrules):
     arch = read_arch("./outputs/subgraph_archs/subgraph_arch_merged.json")
-    graph_arch(arch)
-    PE_fc = pe_arch_closure(arch)
+    PE_fc = wrapped_pe_arch_closure(arch)
     Inst_fc = inst_arch_closure(arch)
     Inst = Inst_fc(family.PyFamily())
-    arch_mapper = ArchMapper(PE_fc)
  
 
     inst_type = PE_fc(family.PyFamily()).input_t.field_dict["inst"]
@@ -986,64 +1063,60 @@ def test_rewrite_rules(rrules):
     asm_fc = asm_arch_closure(arch)
     gen_inst = asm_fc(family.PyFamily())
 
+
     for rr_ind, rrule in enumerate(rrules):
-        
-        input_binding = rrule
 
-        if DEBUG:
-            for i in input_binding:
-                print(i)
+        print("Rewrite rule ", rr_ind)
+        # for c in rrule["ibinding"]:
+        #     print(c)
+        # for c in rrule["obinding"]:
+        #     print(c)
 
-        output_binding = [((0,), ('pe_outputs',0))]
-
+        arch_mapper = ArchMapper(PE_fc)
 
         peak_eq = importlib.import_module("outputs.peak_eqs.peak_eq_" + str(rr_ind))
 
-        print("Checking rewrite rule ", rr_ind)
 
-        rr = RewriteRule(input_binding, output_binding, peak_eq.mapping_function_fc, PE_fc)
+        # ir_mapper = arch_mapper.process_ir_instruction(peak_eq.mapping_function_fc)
 
+        # solution = ir_mapper.solve(external_loop=True)
+
+        rr = RewriteRule(rrule["ibinding"], rrule["obinding"], peak_eq.mapping_function_fc, PE_fc)
 
         counter_example = rr.verify()
-
-
-        if counter_example is None:
-            print("Passed rewrite rule verify")
-        else:
-            print("Failed rewrite rule verify")
+        
+        if counter_example is not None: 
             print(counter_example)
-            print("Trying to solve for rewrite rule")
-            ir_mapper = arch_mapper.process_ir_instruction(peak_eq.mapping_function_fc)
+            exit()
+        else:
+            print("PASSED rewrite rule verify")
 
-            solution = ir_mapper.solve(external_loop=True)
+        rrules[rr_ind] = rr
+    
+    return rrules
 
-            if solution is None: 
-                print("No solution found")
-                return rr_ind
-            else:
-                print("New rewrite rule solution found")
-                rrules[rr_ind] = solution.ibinding
-
-    return -1
-
-def resolve_rr_gen_fail(sub_ind, mappings, subgraphs, merged_graph):
-
-    subgraph = subgraphs[sub_ind]
-
-    print("This is not supported yet")
-    exit()
 
 
 def write_rewrite_rules(rrules):
     for sub_idx, rrule in enumerate(rrules):
-        rrule_out = []
-        for t in rrule:
+        rrule_out = {}
+        rrule_out["ibinding"] = []
+        for t in rrule.ibinding:
             if isinstance(t[0], BitVector):
-                rrule_out.append(tuple([{'type':'BitVector', 'width':len(t[0]), 'value':t[0].value}, t[1]]))
+                rrule_out["ibinding"].append(tuple([{'type':'BitVector', 'width':len(t[0]), 'value':t[0].value}, t[1]]))
             elif isinstance(t[0], Bit):
-                rrule_out.append(tuple([{'type':'Bit', 'width':1, 'value':t[0]._value}, t[1]]))
+                rrule_out["ibinding"].append(tuple([{'type':'Bit', 'width':1, 'value':t[0]._value}, t[1]]))
+            elif t[0] == peak.mapper.utils.Unbound:
+                rrule_out["ibinding"].append(tuple(["unbound", t[1]]))
             else:
-                rrule_out.append(t)
+                rrule_out["ibinding"].append(t)
+
+        rrule_out["obinding"] = []
+        for t in rrule.obinding:
+            if t[0] == peak.mapper.utils.Unbound:
+                rrule_out["obinding"].append(tuple(["unbound", t[1]]))
+            else:
+                rrule_out["obinding"].append(t)
 
         if not os.path.exists('outputs/subgraph_rewrite_rules'):
             os.makedirs('outputs/subgraph_rewrite_rules')
@@ -1088,7 +1161,7 @@ def merge_subgraphs(file_ind_pairs):
         for line in lines:
             if ':' in line:
                 graph_ind += 1
-                graphs_per_file.append(nx.DiGraph())
+                graphs_per_file.append(nx.MultiDiGraph())
             elif 'v' in line:
                 if op_types[line.split()[2]] in alu_supported_ops:
                     op = "-1"
@@ -1118,35 +1191,39 @@ def merge_subgraphs(file_ind_pairs):
         C = FindMaximumWeightClique(gc)
 
         print("subgraph ", i)
-        G, new_mapping = reconsruct_resulting_graph(C, G, graphs[i], g1_map, g2_map)
+        G, new_mapping = reconsruct_resulting_graph(C, G, graphs[i], g1_map, g2_map, op_types)
 
         if i == 1:
             print("subgraph ", 0)
             new_mapping_0 = {k:k for k in graphs[0].nodes}
-            new_mapping_0.update({u + ", " + v:u + ", " + v for (u,v) in graphs[0].edges})
+            new_mapping_0.update({u + ", " + v:u + ", " + v for (u,v,z) in graphs[0].edges})
             node_dict = subgraph_to_peak(graphs[0], 0, new_mapping_0, op_types)
             rrules.append(
-                gen_rewrite_rule(graphs_no_input_nodes[0], G, new_mapping_0, node_dict))
+                gen_rewrite_rule(node_dict))
             mappings.append(new_mapping_0)
             print()
 
         mappings.append(new_mapping)
         node_dict = subgraph_to_peak(graphs[i], i, new_mapping, op_types)
-        rrules.append(gen_rewrite_rule(graphs_no_input_nodes[i], G, new_mapping, node_dict))
+        rrules.append(gen_rewrite_rule(node_dict))
 
         print()
 
 
     merged_arch = merged_subgraph_to_arch(G, op_types)
-    complete_rr = formulate_rewrite_rules(rrules, merged_arch)
-    rr_test_res = test_rewrite_rules(complete_rr)
+    constraints = formulate_rewrite_rules(rrules, merged_arch)
 
-    while rr_test_res != -1:
+    tic = time.perf_counter()
+    rrules = test_rewrite_rules(constraints)
+    toc = time.perf_counter()
+    print(f"{toc - tic:0.4f} seconds")
 
-        resolve_rr_gen_fail(rr_test_res, mappings, graphs, G)
-        merged_arch = merged_subgraph_to_arch(G, op_types)
-        complete_rr = formulate_rewrite_rules(rrules, merged_arch)
-        rr_test_res = test_rewrite_rules(complete_rr)
+    # while rr_test_res != -1:
 
-    write_rewrite_rules(complete_rr)
+    #     resolve_rr_gen_fail(rr_test_res, mappings, graphs, G)
+    #     merged_arch = merged_subgraph_to_arch(G, op_types)
+    #     complete_rr = formulate_rewrite_rules(rrules, merged_arch)
+    #     rr_test_res = test_rewrite_rules(complete_rr)
+
+    write_rewrite_rules(rrules)
 DEBUG = False
