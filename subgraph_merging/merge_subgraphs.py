@@ -64,8 +64,8 @@ def construct_compatibility_graph(g1, g2, op_types, op_types_flipped):
         gb.add_node(
             'a' + str(idx),
             type='node',
-            op=g1.node[n1]['op'],
-            alu_ops=g1.node[n1]['alu_ops'],
+            op=g1.nodes[n1]['op'],
+            alu_ops=g1.nodes[n1]['alu_ops'],
             bipartite=0)
         g1_map[n1] = 'a' + str(idx)
         g1_map_r['a' + str(idx)] = n1
@@ -77,9 +77,9 @@ def construct_compatibility_graph(g1, g2, op_types, op_types_flipped):
             type='edge',
             node0=g1_map[u],
             node1=g1_map[v],
-            op0=g1.node[u]['op'],
-            op1=g1.node[v]['op'],
-            alu_ops1=g1.node[v]['alu_ops'],
+            op0=g1.nodes[u]['op'],
+            op1=g1.nodes[v]['op'],
+            alu_ops1=g1.nodes[v]['alu_ops'],
             port=p,
             bipartite=0)
 
@@ -90,8 +90,8 @@ def construct_compatibility_graph(g1, g2, op_types, op_types_flipped):
         gb.add_node(
             'b' + str(idx),
             type='node',
-            op=g2.node[n1]['op'],
-            alu_ops=g2.node[n1]['alu_ops'],
+            op=g2.nodes[n1]['op'],
+            alu_ops=g2.nodes[n1]['alu_ops'],
             bipartite=1)
         g2_map[n1] = 'b' + str(idx)
         g2_map_r['b' + str(idx)] = n1
@@ -103,9 +103,9 @@ def construct_compatibility_graph(g1, g2, op_types, op_types_flipped):
             type='edge',
             node0=g2_map[u],
             node1=g2_map[v],
-            op0=g2.node[u]['op'],
-            op1=g2.node[v]['op'],
-            alu_ops1=g2.node[v]['alu_ops'],
+            op0=g2.nodes[u]['op'],
+            op1=g2.nodes[v]['op'],
+            alu_ops1=g2.nodes[v]['alu_ops'],
             port=p,
             bipartite=1)
 
