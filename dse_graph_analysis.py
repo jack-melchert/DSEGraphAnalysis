@@ -54,8 +54,10 @@ def main():
 
         # TEMPORARY to speed up subgraph mining
         support_dict = {}
-        support_dict["camera_pipeline"] = "20"
+        support_dict["camera_pipeline"] = "12"
         support_dict["conv_3_3"] = "8"
+        support_dict["harris"] = "8"
+        support_dict["strided_conv"] = "8"
 
 
         # Takes in grami_in.txt and subgraph support, produces Output.txt
