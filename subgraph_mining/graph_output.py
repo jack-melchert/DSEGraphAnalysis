@@ -2,6 +2,7 @@ from graphviz import Digraph
 import sys
 import ast
 import os
+import pickle
 
 def graph_output(dot_file, output_filename):
 
@@ -10,8 +11,8 @@ def graph_output(dot_file, output_filename):
     with open(dot_file) as file:
         lines = file.readlines()
 
-    with open(".temp/op_types.txt") as file:
-        op_types = ast.literal_eval(file.read())
+    with open(".temp/op_types.txt", "rb") as file:
+        op_types = pickle.load(file)
 
     op_types = {str(v): k for k, v in op_types.items()}
     graph_num = -1

@@ -12,11 +12,11 @@ def plot_compatibility_graph(g1, g1_map, g2, g2_map, gb, gc, op_types):
     groups = groups1.union(groups2)
     mapping = dict(zip(sorted(groups), count()))
     nodes = g.nodes()
-    colors = [plt.cm.Pastel1(mapping[g.node[n]['op']]) for n in nodes]
+    colors = [plt.cm.Pastel1(mapping[g.nodes[n]['op']]) for n in nodes]
 
     labels = {}
     for n in nodes:
-        labels[n] = g1_map[n] + "\n" + op_types[g.node[n]['op']]
+        labels[n] = g1_map[n] + "\n" + op_types[g.nodes[n]['op']]
     pos = nx.nx_agraph.graphviz_layout(g, prog='dot')
     ec = nx.draw_networkx_edges(
         g,
@@ -40,11 +40,11 @@ def plot_compatibility_graph(g1, g1_map, g2, g2_map, gb, gc, op_types):
     plt.margins(0.2)
     g = g2
     nodes = g.nodes()
-    colors = [plt.cm.Pastel1(mapping[g.node[n]['op']]) for n in nodes]
+    colors = [plt.cm.Pastel1(mapping[g.nodes[n]['op']]) for n in nodes]
 
     labels = {}
     for n in nodes:
-        labels[n] = g2_map[n] + "\n" + op_types[g.node[n]['op']]
+        labels[n] = g2_map[n] + "\n" + op_types[g.nodes[n]['op']]
     pos = nx.nx_agraph.graphviz_layout(g, prog='dot')
     ec = nx.draw_networkx_edges(
         g,
@@ -167,10 +167,10 @@ def plot_reconstructed_graph(g1, g2, g, op_types):
         groups = set(nx.get_node_attributes(ret_g, 'op').values())
         mapping = dict(zip(sorted(groups), count()))
         nodes = ret_g.nodes()
-        colors = [mapping[ret_g.node[n]['op']] for n in nodes]
+        colors = [mapping[ret_g.nodes[n]['op']] for n in nodes]
         labels = {}
         for n in nodes:
-            labels[n] = op_types[ret_g.node[n]['op']] + "\n" + n
+            labels[n] = op_types[ret_g.nodes[n]['op']] + "\n" + n
 
         pos = nx.nx_agraph.graphviz_layout(ret_g, prog='dot')
         ec = nx.draw_networkx_edges(

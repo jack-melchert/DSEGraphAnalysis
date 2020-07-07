@@ -5,16 +5,19 @@ import os
 from subgraph_mining.convert_dot import convert_dot
 from subgraph_mining.graph_output import graph_output
 from subgraph_mining.convert_subgraphs_to_arch import convert_subgraphs_to_arch
+from subgraph_mining.utils import *
 from subgraph_merging.merge_subgraphs import merge_subgraphs
 
 
 def main():
     parser = argparse.ArgumentParser(description='Graph analysis of a coreir application')
-
+    parser.add_argument('-c', '--cached', help='Use cached subgraphs', action="store_true", default=False)
     parser.add_argument('-f', '--files', nargs='+', metavar=("file", "subgraph_index"),help='Application files for analysis', action='append')
 
 
     args = parser.parse_args()
+
+    use_cached_subgraphs = args.cached
 
     file_ind_pairs = {}
 
@@ -32,53 +35,44 @@ def main():
     file_names = list(file_ind_pairs.keys())
     subgraph_file_ind_pairs = {}
 
-    # Cleaning output directories
-    os.system("rm -rf .temp; rm -rf outputs; rm -rf pdf")
-
-    # takes in .json coreIR file, outputs grami_in.txt and op_types.txt
-    print("Starting .dot conversion...")
-    convert_dot(file_names)
-    print("Finished .dot conversion")
-
-    dot_files = [".temp/" + os.path.basename(f).replace(".json", ".dot") for f in file_names]
-
-    for file_ind, file in enumerate(file_names):
-
-        file_stripped = os.path.basename(file).split(".")[0]
-
-        print("Starting on ", file_stripped)
-
-        # Takes in grami_in.txt produces orig_graph.pdf
-        print("Graphing original graph")
-        graph_output(dot_files[file_ind], file_stripped)
-
-        # TEMPORARY to speed up subgraph mining
-        support_dict = {}
-        support_dict["camera_pipeline"] = "12"
-        support_dict["conv_3_3"] = "8"
-        support_dict["harris"] = "8"
-        support_dict["strided_conv"] = "8"
 
 
-        # Takes in grami_in.txt and subgraph support, produces Output.txt
-        print("Starting GraMi subgraph mining...")
-        os.system('''cd GraMi
-        ./grami -f ../../''' + dot_files[file_ind] + ''' -s ''' + support_dict[file_stripped] + ''' -t 1 -p 0 > grami_log.txt
-        cd ../''')
+    if not use_cached_subgraphs:
+        # Cleaning output directories
+        os.system("rm -rf .temp; rm -rf outputs; rm -rf pdf; rm -rf .ast_tools")
+        # takes in .json coreIR file, outputs grami_in.txt and op_types.txt
+        print("Starting .dot conversion...")
+        convert_dot(file_names)
+        print("Finished .dot conversion")
 
-        print("Finished GraMi subgraph mining")
+        dot_files = [".temp/" + os.path.basename(f).replace(".json", ".dot") for f in file_names]
 
-        # Takes in Output.txt produces subgraphs.pdf
-        print("Graphing subgraphs")
-        graph_output("GraMi/Output.txt", file_stripped + "_subgraphs")
+        for file_ind, file in enumerate(file_names):
 
-        # Takes in Output.txt, produces a bunch of .json arch files in /subgraph/
-        print("Converting subgraph files to arch format")
-        convert_subgraphs_to_arch("GraMi/Output.txt", file_stripped)
+            file_stripped = os.path.basename(file).split(".")[0]
 
-        shutil.copyfile("GraMi/Output.txt", dot_files[file_ind].replace(".dot", "_subgraphs.dot"))
+            print("Starting on ", file_stripped)
 
-        subgraph_file_ind_pairs[dot_files[file_ind].replace(".dot", "_subgraphs.dot")] = file_ind_pairs[file]
+            # Takes in grami_in.txt produces orig_graph.pdf
+            print("Graphing original graph")
+            graph_output(dot_files[file_ind], file_stripped)
+
+            # Takes in grami_in.txt and subgraph support, produces Output.txt
+            grami_subgraph_mining(dot_files[file_ind], file_ind_pairs[file])
+
+
+            new_subgraphs_file = dot_files[file_ind].replace(".dot", "_subgraphs.dot")
+            reverse_subgraph_list("GraMi/Output.txt", new_subgraphs_file)
+
+            # Takes in Output.txt produces subgraphs.pdf
+            print("Graphing subgraphs")
+            graph_output(new_subgraphs_file, file_stripped + "_subgraphs")
+
+            subgraph_file_ind_pairs[dot_files[file_ind].replace(".dot", "_subgraphs.dot")] = file_ind_pairs[file]
+    else:
+        dot_files = [".temp/" + os.path.basename(f).replace(".json", ".dot") for f in file_names]
+        for file_ind, file in enumerate(file_names):
+            subgraph_file_ind_pairs[dot_files[file_ind].replace(".dot", "_subgraphs.dot")] = file_ind_pairs[file]
 
     print("Starting subgraph merging")
     merge_subgraphs(subgraph_file_ind_pairs)

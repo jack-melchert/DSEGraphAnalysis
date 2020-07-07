@@ -30,9 +30,13 @@ def gen_rewrite_rule(node_dict):
         rr[k]['0'] = v['0']
         if not (v['alu_op'] == "const" or v['alu_op'] == "output"):
             rr[k]['1'] = v['1']
+
+        if v['alu_op'] == "mux":
+            rr[k]['2'] = v['2']
+
         rr[k]['alu_op'] = v['alu_op']
 
-    # print(rr)
+    print(rr)
     return rr
 
 
@@ -46,18 +50,20 @@ def formulate_rewrite_rules(rrules, merged_arch):
     PE_fc = wrapped_pe_arch_closure(arch)
     arch_mapper = ArchMapper(PE_fc)
 
-
     for sub_idx, rrule in enumerate(rrules):
         rr_output = {}
       
         input_mappings = {}
+        bit_input_mappings = {}
         const_mappings = {}
         seen_inputs = []
 
         alu = []
         mul = []
+        ops = []
         mux_in0 = []
         mux_in1 = []
+        mux_sel = []
         mux_out = []
         cfg_idx = 0
 
@@ -68,8 +74,10 @@ def formulate_rewrite_rules(rrules, merged_arch):
                 if module["type"] == "alu" or module["type"] == "mul" or module["type"] == "mux":
                     if module["type"] == "alu":
                         alu.append(v['alu_op'])
+                        ops.append(v['alu_op'])
                     elif module["type"] == "mul":
                         mul.append("Mult0")
+                        ops.append("Mult0")
 
                     if len(module["in0"]) > 1:
                         for mux_idx, mux_in in enumerate(module["in0"]):
@@ -113,6 +121,28 @@ def formulate_rewrite_rules(rrules, merged_arch):
                         input_mappings[in_idx] = v['1']
                         seen_inputs.append(v['1'])
 
+                    if module["type"] == "mux":
+                        if len(module["sel"]) > 1:
+                            for mux_idx, mux_in in enumerate(module["sel"]):
+                                if v['2'] == mux_in:
+                                    mux_sel.append(mux_idx)
+
+                                    if "in" in v['2']:
+                                        in_idx = int(mux_in.split("in")[1])
+                                        bit_input_mappings[in_idx] = v['2']
+                                        seen_inputs.append(v['2'])
+                                elif "in" in mux_in:
+                                    in_idx = int(mux_in.split("in")[1])
+
+                                    if mux_in not in seen_inputs:
+                                        bit_input_mappings[in_idx] = 0
+                                        seen_inputs.append(mux_in)
+
+                        elif "in" in module["sel"][0]:
+                            in_idx = int(v['2'].split("in")[1])
+                            bit_input_mappings[in_idx] = v['2']
+                            seen_inputs.append(v['2'])
+
                 elif module["type"] == "const":
                     # cfg_idx = int(v['0'].split("const")[1])
                     const_mappings[cfg_idx] = v['0']
@@ -123,8 +153,20 @@ def formulate_rewrite_rules(rrules, merged_arch):
                 if module["type"] == "alu" or module["type"] == "mul" or module["type"] == "mux":
                     if module["type"] == "alu":
                         alu.append("add")
+                        ops.append("add")
                     elif module["type"] == "mul":
                         mul.append("Mult0") 
+                        ops.append("Mult0") 
+                    elif module["type"] == "mux":
+                        if len(module["sel"]) > 1:
+                            mux_sel.append(0)
+                        for mux_in in module["sel"]:
+                            if "in" in mux_in:
+                                in_idx = int(mux_in.split("in")[1])
+
+                                if mux_in not in seen_inputs:
+                                    bit_input_mappings[in_idx] = 0
+                                    seen_inputs.append(mux_in)
 
                     if len(module["in0"]) > 1:
                         mux_in0.append(0)
@@ -166,6 +208,17 @@ def formulate_rewrite_rules(rrules, merged_arch):
             else:
                 input_binding.append(((v,), ("inputs", k)))
 
+        input_binding.append((peak.mapper.utils.Unbound, ("bit_inputs", 0)))
+        input_binding.append((peak.mapper.utils.Unbound, ("bit_inputs", 1)))
+        input_binding.append((peak.mapper.utils.Unbound, ("bit_inputs", 2)))
+
+        for k, v in bit_input_mappings.items():
+            if v == 0:
+                input_binding.append((peak.mapper.utils.Unbound, ("bit_inputs", k+3)))
+            else:
+                input_binding.append(((v,), ("bit_inputs", k+3)))
+
+
         for k, v in const_mappings.items():
             if v == 0:
                 input_binding.append((peak.mapper.utils.Unbound, ("inst", "const_data", k)))
@@ -177,7 +230,7 @@ def formulate_rewrite_rules(rrules, merged_arch):
 
         op_map["Mult0"] = MUL_t.Mult0
         op_map["Mult1"] = MUL_t.Mult1
-        op_map["not"] = ALU_t.Sub  
+        # op_map["not"] = ALU_t.Sub  
         op_map["and"] = ALU_t.And    
         op_map["or"] = ALU_t.Or    
         op_map["xor"] = ALU_t.XOr    
@@ -196,11 +249,17 @@ def formulate_rewrite_rules(rrules, merged_arch):
         op_map["ugt"] = ALU_t.Sub    
         op_map["ult"] = ALU_t.Sub    
         op_map["eq"] = ALU_t.Sub    
+        op_map["umax"] = ALU_t.GTE_Max    
+        op_map["smax"] = ALU_t.GTE_Max  
+        op_map["umin"] = ALU_t.LTE_Min  
+        op_map["smin"] = ALU_t.LTE_Min
+        op_map["abs"] = ALU_t.Abs
+        op_map["absd"] = ALU_t.Sub
 
         cond_map = {}
         cond_map["Mult0"] = Cond_t.ALU
         cond_map["Mult1"] = Cond_t.ALU
-        cond_map["not"] = Cond_t.ALU  
+        # cond_map["not"] = Cond_t.ALU  
         cond_map["and"] = Cond_t.ALU    
         cond_map["or"] = Cond_t.ALU    
         cond_map["xor"] = Cond_t.ALU    
@@ -219,19 +278,55 @@ def formulate_rewrite_rules(rrules, merged_arch):
         cond_map["ule"] = Cond_t.ALU   
         cond_map["uge"] = Cond_t.ALU    
         cond_map["eq"] = Cond_t.EQ
+        cond_map["umax"] = Cond_t.ALU    
+        cond_map["smax"] = Cond_t.ALU  
+        cond_map["umin"] = Cond_t.ALU  
+        cond_map["smin"] = Cond_t.ALU
+        cond_map["abs"] = Cond_t.ALU
+        cond_map["absd"] = Cond_t.ALU
 
+        signed_map = {}
+        signed_map["Mult0"] = Signed_t.unsigned
+        signed_map["Mult1"] = Signed_t.unsigned
+        # signed_map["not"] = Signed_t.unsigned  
+        signed_map["and"] = Signed_t.unsigned    
+        signed_map["or"] = Signed_t.unsigned    
+        signed_map["xor"] = Signed_t.unsigned    
+        signed_map["shl"] = Signed_t.unsigned   
+        signed_map["lshr"] = Signed_t.unsigned    
+        signed_map["ashr"] = Signed_t.unsigned    
+        signed_map["neg"] = Signed_t.unsigned   
+        signed_map["add"] = Signed_t.unsigned    
+        signed_map["sub"] = Signed_t.unsigned    
+        signed_map["sle"] = Signed_t.signed    
+        signed_map["sge"] = Signed_t.signed     
+        signed_map["slt"] = Signed_t.signed   
+        signed_map["sgt"] = Signed_t.signed  
+        signed_map["ult"] = Signed_t.unsigned    
+        signed_map["ugt"] = Signed_t.unsigned    
+        signed_map["ule"] = Signed_t.unsigned   
+        signed_map["uge"] = Signed_t.unsigned    
+        signed_map["eq"] = Signed_t.unsigned
+        signed_map["umax"] = Signed_t.unsigned    
+        signed_map["smax"] = Signed_t.signed  
+        signed_map["umin"] = Signed_t.unsigned  
+        signed_map["smin"] = Signed_t.signed
+        signed_map["abs"] = Signed_t.unsigned
+        signed_map["absd"] = Signed_t.unsigned
 
-
+        signed = [signed_map[n] for n in ops]
         cond = [cond_map[n] for n in alu]
         alu = [op_map[n] for n in alu]
         mul = [op_map[n] for n in mul]
 
         mux_in0_bw = [m.math.log2_ceil(len(arch.modules[i].in0)) for i in range(len(arch.modules)) if len(arch.modules[i].in0) > 1]
         mux_in1_bw = [m.math.log2_ceil(len(arch.modules[i].in1)) for i in range(len(arch.modules)) if len(arch.modules[i].in1) > 1]
+        mux_sel_bw = [m.math.log2_ceil(len(arch.modules[i].sel)) for i in range(len(arch.modules)) if len(arch.modules[i].sel) > 1]
 
 
         mux_in0_asmd = [BitVector[mux_in0_bw[i]](n) for i, n in enumerate(mux_in0)]
         mux_in1_asmd = [BitVector[mux_in1_bw[i]](n) for i, n in enumerate(mux_in1)]
+        mux_sel_asmd = [BitVector[mux_sel_bw[i]](n) for i, n in enumerate(mux_sel)]
 
         mux_out_bw = [m.math.log2_ceil(len(arch.outputs[i])) for i in range(arch.num_outputs) if len(arch.outputs[i]) > 1]
         mux_out_asmd = [BitVector[mux_out_bw[i]](n) for i, n in enumerate(mux_out)]
@@ -257,15 +352,19 @@ def formulate_rewrite_rules(rrules, merged_arch):
         for ind, a in enumerate(mux_in1_asmd):
             input_binding.append((a, ("inst", "mux_in1", ind)))
 
+        for ind, a in enumerate(mux_sel_asmd):
+            input_binding.append((a, ("inst", "mux_sel", ind)))
+
         for ind, a in enumerate(mux_out_asmd):
             input_binding.append((a, ("inst", "mux_out", ind)))
 
-        input_binding.append((BitVector[1](0), ('inst', 'signed')))
+        for ind, a in enumerate(signed):
+            input_binding.append((a, ("inst", "signed", ind)))
+
         input_binding.append((BitVector[8](0), ('inst', 'lut')))
 
 
-
-        constrained_vars = {"inst", "inputs"}
+        constrained_vars = {"inst", "inputs", "bit_inputs"}
 
         for i in arch_mapper.input_varmap:
             if i[0] not in constrained_vars:
@@ -320,10 +419,12 @@ def test_rewrite_rules(rrules):
         # pretty_print_binding(rr.ibinding)
         # pretty_print_binding(rr.obinding)
 
-        counterer_example = rr.verify()
+        counter_example = rr.verify()
         
-        if counterer_example is not None: 
-            print(counterer_example)
+        if counter_example is not None: 
+            for i in counter_example:
+                for ii in i.items():
+                    print(ii)
             exit()
         else:
             print("PASSED rewrite rule verify")

@@ -13,8 +13,8 @@ from .rewrite_rule_utils import *
 from .plot_utils import *
 
 def add_input_and_output_nodes(g, op_types):
-    node_dict = {}
     input_idx = 0
+    bit_input_idx = 0
     const_idx = 0
 
     for n, d in g.copy().nodes.data(True):
@@ -30,6 +30,11 @@ def add_input_and_output_nodes(g, op_types):
                 g.add_node("in" + str(input_idx), op="input", alu_ops=["input"])
                 g.add_edge("in" + str(input_idx), n, port='1')
                 input_idx += 1
+            if op_types[d["alu_ops"][0]] == "mux":
+                if '2' not in pred:
+                    g.add_node("bit_in" + str(bit_input_idx), op="bit_input", alu_ops=["bit_input"])
+                    g.add_edge("bit_in" + str(bit_input_idx), n, port='2')
+                    bit_input_idx += 1
         else:
             g.add_node(
                 "const" + str(const_idx),
@@ -46,10 +51,9 @@ def add_input_and_output_nodes(g, op_types):
 def RemoveInputAndOutputNodes(g):
     ret_g = g.copy()
     for n, d in ret_g.copy().nodes.data(True):
-        if d["op"] == "input" or d["op"] == "const_input":
+        if d["op"] == "input" or d["op"] == "input" or d["op"] == "const_input":
             ret_g.remove_node(n)
-        elif d["op"] == "const_input":
-            d.pop('0', None)
+
     ret_g.remove_node("out0")
     return ret_g
 
@@ -109,7 +113,7 @@ def construct_compatibility_graph(g1, g2, op_types, op_types_flipped):
             port=p,
             bipartite=1)
 
-    comm_ops =  ["and", "or", "xor", "add", "eq", "mul", "alu"]
+    comm_ops =  ["and", "or", "xor", "add", "eq", "mul", "alu", "umax", "umin", "smax", "smin"]
     left_nodes = [(n, d) for n, d in gb.nodes(data=True)
                   if d['bipartite'] == 0]
     right_nodes = [(n, d) for n, d in gb.nodes(data=True)
@@ -135,6 +139,8 @@ def construct_compatibility_graph(g1, g2, op_types, op_types_flipped):
             weights[str(v)] = 2030
         elif k == "const":
             weights[str(v)] = 12
+        elif k == "mux":
+            weights[str(v)] = 30
         else:
             weights[str(v)] = 1317
 
@@ -147,15 +153,14 @@ def construct_compatibility_graph(g1, g2, op_types, op_types_flipped):
                 weight = weights[gb.nodes.data(True)[u]['op']]
             else:
                 weight = 1317
-            if gb.nodes.data(True)[u]['op'] == "input" or gb.nodes.data(
-                    True)[u]['op'] == "output" or gb.nodes.data(
-                        True)[u]['op'] == "const_input":
+            if gb.nodes.data(True)[u]['op'] == "input" or gb.nodes.data(True)[u]['op'] == "bit_input" \
+                or gb.nodes.data(True)[u]['op'] == "output" or gb.nodes.data(True)[u]['op'] == "const_input":
                 in_or_out = True
             gc.add_node(i, start=u, end=v, weight=weight, in_or_out=in_or_out)
         else:
             weight = 30
             d = gb.nodes.data(True)[u]
-            if d["op0"] == "input" or d["op1"] == "input" or d["op0"] == "output" or d["op1"] == "output" or d["op0"] == "const_input" or d["op1"] == "const_input":
+            if d["op0"] == "input" or d["op1"] == "input" or d["op0"] == "bit_input" or d["op1"] == "bit_input" or d["op0"] == "output" or d["op1"] == "output" or d["op0"] == "const_input" or d["op1"] == "const_input":
                 in_or_out = True
             gc.add_node(i, start=u, end=v, weight=weight, in_or_out=in_or_out, start_port=gb.nodes.data(True)[u]["port"], end_port=gb.nodes.data(True)[v]["port"])
 
@@ -302,14 +307,13 @@ def FindMaximumWeightClique(gc):
     return C
 
 def swap_ports(subgraph, dest_node):
-    # Find all predecessors of dest_node in subgraph
     for s in subgraph.pred[dest_node]:
         if subgraph.edges[(s, dest_node, 0)]['port'] == "0":
             subgraph.edges[(s, dest_node, 0)]['port'] = "1"
         else:
             subgraph.edges[(s, dest_node, 0)]['port'] = "0"
 
-        print(s, subgraph.nodes.data(True)[s], dest_node, subgraph.nodes.data(True)[dest_node], subgraph.edges[(s, dest_node, 0)])
+        # print(s, subgraph.nodes.data(True)[s], dest_node, subgraph.nodes.data(True)[dest_node], subgraph.edges[(s, dest_node, 0)])
 
 def reconsruct_resulting_graph(c, g1, g2, g1_map, g2_map, op_types):
     b = {}
@@ -322,7 +326,7 @@ def reconsruct_resulting_graph(c, g1, g2, g1_map, g2_map, op_types):
         else:
             b[g2_map[j]] = g1_map[i]
 
-    comm_ops =  ["and", "or", "xor", "add", "eq", "mul", "alu"]
+    comm_ops =  ["and", "or", "xor", "add", "eq", "mul", "alu", "umax", "umin", "smax", "smin"]
 
     for k,v in b.items():
         if "," in k:
@@ -341,8 +345,13 @@ def reconsruct_resulting_graph(c, g1, g2, g1_map, g2_map, op_types):
 
     in_idx = 0
     for n in g1.nodes:
-        if "in" in n:
+        if "in" in n and "bit" not in n:
             in_idx += 1
+
+    bit_in_idx = 0
+    for n in g1.nodes:
+        if "in" in n and "bit" in n:
+            bit_in_idx += 1
 
     const_idx = 0
     for n in g1.nodes:
@@ -356,6 +365,10 @@ def reconsruct_resulting_graph(c, g1, g2, g1_map, g2_map, op_types):
                 g.add_node("in" + str(in_idx), op=d['op'], alu_ops=d['alu_ops'])
                 b[n] = "in" + str(in_idx)
                 in_idx += 1
+            elif d["op"] == "bit_input":
+                g.add_node("bit_in" + str(bit_in_idx), op=d['op'], alu_ops=d['alu_ops'])
+                b[n] = "bit_in" + str(bit_in_idx)
+                bit_in_idx += 1
             elif d["op"] == "const_input":
                 g.add_node(
                     "const" + str(const_idx), op=d['op'], alu_ops=d['alu_ops'])
@@ -404,7 +417,6 @@ def merge_subgraphs(file_ind_pairs):
 
         C = FindMaximumWeightClique(gc)
 
-        print("subgraph ", i)
         G, new_mapping = reconsruct_resulting_graph(C, G, graphs[i], g1_map, g2_map, op_types)
 
         if i == 1:
@@ -417,6 +429,7 @@ def merge_subgraphs(file_ind_pairs):
             mappings.append(new_mapping_0)
             print()
 
+        print("subgraph ", i)
         mappings.append(new_mapping)
         node_dict = subgraph_to_peak(graphs[i], i, new_mapping, op_types)
         rrules.append(gen_rewrite_rule(node_dict))
