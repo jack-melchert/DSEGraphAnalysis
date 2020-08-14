@@ -19,12 +19,18 @@ def graph_output(dot_file, output_filename):
 
     for line in lines:
         if ':' in line or '#' in line:
+            if graph_num > -1:
+                graph.subgraph(subgraph)
             graph_num += 1
+            subgraph = Digraph(name="cluster_"+str(graph_num))
+            subgraph.attr(label = str(graph_num))
         elif 'v' in line:
-            graph.node(str(graph_num) + "=" + line.split()[1], op_types[line.split()[2]])
+            subgraph.node(str(graph_num) + "=" + line.split()[1], op_types[line.split()[2]])
         elif 'e' in line:
-            graph.edge(str(graph_num) + "=" + line.split()[1], str(graph_num) + "=" + line.split()[2])
-        
+            subgraph.edge(str(graph_num) + "=" + line.split()[1], str(graph_num) + "=" + line.split()[2], label=line.split()[3])
+
+    graph.subgraph(subgraph)
+
     if not os.path.exists('pdf'):
         os.makedirs('pdf')
 

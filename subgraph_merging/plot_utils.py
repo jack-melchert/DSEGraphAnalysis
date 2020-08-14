@@ -193,3 +193,39 @@ def plot_reconstructed_graph(g1, g2, g, op_types):
         nx.draw_networkx_labels(ret_g, pos, labels)
 
     plt.show()
+
+
+def plot_graph(g, op_types):
+
+
+    ret_g = g.copy()
+
+    groups = set(nx.get_node_attributes(ret_g, 'op').values())
+    mapping = dict(zip(sorted(groups), count()))
+    nodes = ret_g.nodes()
+    colors = [mapping[ret_g.nodes[n]['op']] for n in nodes]
+    labels = {}
+    for n in nodes:
+        labels[n] = op_types[ret_g.nodes[n]['op']] + "\n" + n
+
+    pos = nx.nx_agraph.graphviz_layout(ret_g, prog='dot')
+    ec = nx.draw_networkx_edges(
+        ret_g,
+        pos,
+        alpha=1,
+        width=3,
+        node_size=1500,
+        arrows=True,
+        arrowsize=15)
+    nc = nx.draw_networkx_nodes(
+        ret_g,
+        pos,
+        node_list=nodes,
+        node_color=colors,
+        with_labels=False,
+        node_size=1500,
+        cmap=plt.cm.Pastel1,
+        alpha=1)
+    nx.draw_networkx_labels(ret_g, pos, labels)
+
+    plt.show()

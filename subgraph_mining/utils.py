@@ -38,7 +38,7 @@ def grami_subgraph_mining(input_file, subgraph_inds):
     support_dict[".temp/strided_conv.dot"] = "15"
 
     # if input_file not in support_dict:
-    support = 30 # Starting support number
+    support = 13 # Starting support number
     # else:
     #     support = support_dict[input_file]
 
@@ -46,7 +46,7 @@ def grami_subgraph_mining(input_file, subgraph_inds):
     
     num_subgraphs = 0
 
-    while num_subgraphs <= max_subgraph:
+    while num_subgraphs <= max_subgraph and support > 0:
         
         os.system('''cd GraMi
         ./grami -f ../../''' + input_file + ''' -s ''' + str(support) + ''' -t 1 -p 0 > grami_log.txt
