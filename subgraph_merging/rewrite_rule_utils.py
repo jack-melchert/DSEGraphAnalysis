@@ -24,6 +24,8 @@ from peak_gen.alu import ALU_t, Signed_t
 from peak_gen.cond import Cond_t
 from peak_gen.mul import MUL_t
 
+from timeit import default_timer as timer
+
 lut_supported_ops = {
     "bitand", "bitor", "bitxor", "bitnot", "bitmux"
 }
@@ -498,17 +500,18 @@ def formulate_rewrite_rules(rrules, merged_arch):
 def test_rewrite_rules(rrules):
     arch = read_arch("./outputs/subgraph_archs/subgraph_arch_merged.json")
     PE_fc = wrapped_peak_class(arch)
-    Inst_fc = inst_arch_closure(arch)
-    Inst = Inst_fc(family.PyFamily())
+    arch_mapper = ArchMapper(PE_fc)
+    # Inst_fc = inst_arch_closure(arch)
+    # Inst = Inst_fc(family.PyFamily())
  
 
-    inst_type = PE_fc(family.PyFamily()).input_t.field_dict["inst"]
+    # inst_type = PE_fc(family.PyFamily()).input_t.field_dict["inst"]
 
-    _assembler = Assembler(inst_type)
-    assembler = _assembler.assemble
+    # _assembler = Assembler(inst_type)
+    # assembler = _assembler.assemble
 
-    asm_fc = asm_arch_closure(arch)
-    gen_inst = asm_fc(family.PyFamily())
+    # asm_fc = asm_arch_closure(arch)
+    # gen_inst = asm_fc(family.PyFamily())
 
 
     for rr_ind, rrule in enumerate(rrules):
@@ -520,20 +523,29 @@ def test_rewrite_rules(rrules):
         # peak_eq.mapping_function_fc.Py()
         # peak_eq.mapping_function_fc.SMT()
         # peak_eq.mapping_function_fc.Magma()
-        # ir_mapper = arch_mapper.process_ir_instruction(peak_eq.mapping_function_fc)
-
-        # solution = ir_mapper.solve(external_loop=True)
-
-        # pretty_print_binding(rrule["ibinding"])
-        # pretty_print_binding(rrule["obinding"]) 
-        rr = RewriteRule(rrule["ibinding"], rrule["obinding"], peak_eq.mapping_function_fc, PE_fc)
+        ir_mapper = arch_mapper.process_ir_instruction(peak_eq.mapping_function_fc)
 
         print("Rewrite rule ", rr_ind)
+        start = timer()
+        solution = ir_mapper.solve("btor", external_loop=True)
+        end = timer()
+        print(f"{end-start}")
+
+
+
+        # rr = RewriteRule(rrule["ibinding"], rrule["obinding"], peak_eq.mapping_function_fc, PE_fc)
+        # rr = solution
+        pretty_print_binding(solution.ibinding)
+        pretty_print_binding(solution.obinding) 
+        if solution is None:
+        
+            print("Failed to find rrule")
+            exit()
         # for k, v in Inst.field_dict.items(): print(k,v)
         # for i in rr.ibinding: print(i)
 
-        arch_mapper = ArchMapper(PE_fc)
-        counter_example = rr.verify()
+        # arch_mapper = ArchMapper(PE_fc)
+        counter_example = solution.verify()
         
         if counter_example is not None: 
             for i in counter_example:
@@ -543,7 +555,7 @@ def test_rewrite_rules(rrules):
         else:
             print("PASSED rewrite rule verify")
 
-        rrules[rr_ind] = rr
+        rrules[rr_ind] = solution
     
     return rrules
 

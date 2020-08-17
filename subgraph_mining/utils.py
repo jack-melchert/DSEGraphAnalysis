@@ -28,41 +28,31 @@ def reverse_subgraph_list(input_filename, output_filename):
 
 def grami_subgraph_mining(input_file, subgraph_inds):
 
-    max_subgraph = max(subgraph_inds)
+    if len(subgraph_inds) != 0:
+        max_subgraph = max(subgraph_inds)
+        support = 13 # Starting support number
 
-    # TEMPORARY to speed up subgraph mining
-    support_dict = {}
-    support_dict[".temp/camera_pipeline.dot"] = "20"
-    support_dict[".temp/conv_3_3.dot"] = "15"
-    support_dict[".temp/harris.dot"] = "15"
-    support_dict[".temp/strided_conv.dot"] = "15"
-
-    # if input_file not in support_dict:
-    support = 13 # Starting support number
-    # else:
-    #     support = support_dict[input_file]
-
-    print("Starting GraMi subgraph mining...")
-    
-    num_subgraphs = 0
-
-    while num_subgraphs <= max_subgraph and support > 0:
+        print("Starting GraMi subgraph mining...")
         
-        os.system('''cd GraMi
-        ./grami -f ../../''' + input_file + ''' -s ''' + str(support) + ''' -t 1 -p 0 > grami_log.txt
-        cd ../''')
-
-        with open("GraMi/Output.txt") as file:
-            lines = file.readlines()
-
         num_subgraphs = 0
-        
-        for line in lines:
-            if ':' in line:
-                num_subgraphs += 1
 
-        print("Support =", support, " num_subgraphs =", num_subgraphs)
+        while num_subgraphs <= max_subgraph and support > 0:
+            
+            os.system('''cd GraMi
+            ./grami -f ../../''' + input_file + ''' -s ''' + str(support) + ''' -t 1 -p 0 > grami_log.txt
+            cd ../''')
 
-        support -= 1
+            with open("GraMi/Output.txt") as file:
+                lines = file.readlines()
 
-    print("Finished GraMi subgraph mining")
+            num_subgraphs = 0
+            
+            for line in lines:
+                if ':' in line:
+                    num_subgraphs += 1
+
+            print("Support =", support, " num_subgraphs =", num_subgraphs)
+
+            support -= 1
+
+        print("Finished GraMi subgraph mining")
