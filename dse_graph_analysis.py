@@ -21,6 +21,7 @@ def main():
 
     file_ind_pairs = {}
 
+    # breakpoint()
     for file_ind in args.files:
         if '.json' not in file_ind[0]:
             parser.error('-f file is not a json file')

@@ -279,9 +279,11 @@ def construct_compatibility_graph(g1, g2, op_types, op_types_flipped):
 
         elif (pair[0][1]['start'] == pair[1][1]['start']):
             if (pair[0][1]['end'] == pair[1][1]['end']):
-                gc.add_edge(pair[0][0], pair[1][0])
+                if check_no_cycles(pair, g1, g1_map_r, g2, g2_map_r):
+                    gc.add_edge(pair[0][0], pair[1][0])
         elif not (pair[0][1]['end'] == pair[1][1]['end']):
-            gc.add_edge(pair[0][0], pair[1][0])
+            if check_no_cycles(pair, g1, g1_map_r, g2, g2_map_r):
+                gc.add_edge(pair[0][0], pair[1][0])
 
     if DEBUG:
         plot_compatibility_graph(g1, g1_map, g2, g2_map, gb, gc, op_types)

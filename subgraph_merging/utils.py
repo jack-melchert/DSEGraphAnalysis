@@ -452,3 +452,28 @@ def mapping_function_fc(family: AbstractFamily):
         write_file.write(peak_output)
 
     return ret_val
+
+
+def check_no_cycles(pair, g1, g1_map_r, g2, g2_map_r):
+
+    a0 = g1_map_r[pair[0][1]['start']]
+    a1 = g1_map_r[pair[1][1]['start']]
+
+    b0 = g2_map_r[pair[0][1]['end']]
+    b1 = g2_map_r[pair[1][1]['end']]
+
+
+    apath = nx.algorithms.shortest_paths.generic.has_path(g1, a0, a1)
+    apath_r = nx.algorithms.shortest_paths.generic.has_path(g1, a1, a0)
+    bpath = nx.algorithms.shortest_paths.generic.has_path(g2, b0, b1)
+    bpath_r = nx.algorithms.shortest_paths.generic.has_path(g2, b1, b0)
+
+    cycle_exists = (apath and bpath_r) or (apath_r and bpath)
+
+    # if cycle_exists:
+    #     breakpoint()
+
+    return not cycle_exists
+    
+
+    
