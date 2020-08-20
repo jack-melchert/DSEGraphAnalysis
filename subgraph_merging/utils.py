@@ -399,7 +399,7 @@ def subgraph_to_peak(subgraph, sub_idx, b, op_types):
                         inputs.add(data['1'])
 
                 if '2' in data:
-                    if "in" in data['2']:
+                    if "in" in data['2'] and "mux" in data['alu_op']:
                         bit_inputs.add(data['2'])
 
 

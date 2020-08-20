@@ -27,7 +27,8 @@ def graph_output(dot_file, output_filename):
         elif 'v' in line:
             subgraph.node(str(graph_num) + "=" + line.split()[1], op_types[line.split()[2]])
         elif 'e' in line:
-            subgraph.edge(str(graph_num) + "=" + line.split()[1], str(graph_num) + "=" + line.split()[2], label=line.split()[3])
+            # subgraph.edge(str(graph_num) + "=" + line.split()[1], str(graph_num) + "=" + line.split()[2], label=line.split()[3])
+            subgraph.edge(str(graph_num) + "=" + line.split()[1], str(graph_num) + "=" + line.split()[2])
 
     graph.subgraph(subgraph)
 

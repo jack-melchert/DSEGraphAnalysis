@@ -162,7 +162,11 @@ def formulate_rewrite_rules(rrules, merged_arch):
 
                                     if "in" in v['2']:
                                         in_idx = int(mux_in.split("in")[1])
-                                        bit_input_mappings[in_idx] = v['2']
+
+                                        if "mux" in v['alu_op']:
+                                            bit_input_mappings[in_idx] = v['2']
+                                        else:
+                                            bit_input_mappings[in_idx] = 0
                                         seen_inputs.append(v['2'])
                                 elif "in" in mux_in:
                                     in_idx = int(mux_in.split("in")[1])
@@ -173,7 +177,10 @@ def formulate_rewrite_rules(rrules, merged_arch):
 
                         elif "in" in module["in2"][0]:
                             in_idx = int(v['2'].split("in")[1])
-                            bit_input_mappings[in_idx] = v['2']
+                            if "mux" in v['alu_op']:
+                                bit_input_mappings[in_idx] = v['2']
+                            else:
+                                bit_input_mappings[in_idx] = 0
                             seen_inputs.append(v['2'])
 
                 elif module["type"] == "const" or module["type"] == "bitconst":
