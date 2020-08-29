@@ -7,7 +7,7 @@ from subgraph_mining.graph_output import graph_output
 from subgraph_mining.convert_subgraphs_to_arch import convert_subgraphs_to_arch
 from subgraph_mining.utils import *
 from subgraph_merging.merge_subgraphs import merge_subgraphs
-
+from subgraph_mining.find_maximal_ind_set import find_maximal_independent_set
 
 def main():
     parser = argparse.ArgumentParser(description='Graph analysis of a coreir application')
@@ -60,16 +60,18 @@ def main():
 
             # Takes in grami_in.txt and subgraph support, produces Output.txt
             grami_subgraph_mining(dot_files[file_ind], file_ind_pairs[file])
-
+            
+            max_ind_set_stats = find_maximal_independent_set(dot_files[file_ind], "GraMi/Output.txt")
 
             new_subgraphs_file = dot_files[file_ind].replace(".dot", "_subgraphs.dot")
-            reverse_subgraph_list("GraMi/Output.txt", new_subgraphs_file)
+            max_ind_set_stats = sort_subgraph_list("GraMi/Output.txt", new_subgraphs_file, max_ind_set_stats)
 
             # Takes in Output.txt produces subgraphs.pdf
             print("Graphing subgraphs")
-            graph_output(new_subgraphs_file, file_stripped + "_subgraphs")
+            graph_output(new_subgraphs_file, file_stripped + "_subgraphs", max_ind_set_stats)
 
             subgraph_file_ind_pairs[dot_files[file_ind].replace(".dot", "_subgraphs.dot")] = file_ind_pairs[file]
+
     else:
         dot_files = [".temp/" + os.path.basename(f).replace(".json", ".dot") for f in file_names]
         for file_ind, file in enumerate(file_names):

@@ -5,7 +5,11 @@ import shutil
 import ast
 import networkx as nx
 import pickle
-
+from peak_gen.sim import pe_arch_closure
+from peak_gen.arch import read_arch, graph_arch
+import magma as m
+import sys
+from peak import family
 
 primitive_ops = {
     "and", "or", "xor", "shl", "lshr", "ashr", "add", "sub",
@@ -37,7 +41,7 @@ def read_subgraphs(file_ind_pairs, op_types):
 
     weights = {"const":1, "and":1, "or":1, "xor":1, "shl":1, "lshr":1, "ashr":1, "add":1, "sub":1,
     "sle":1, "sge":1, "ule":1, "uge":1, "eq":1, "slt":1, "sgt":1, "ult":1, "ugt":1, 
-    "smax":2, "smin":2, "umax":2, "umin":2, "absd":4, "abs":2, "mul":1, "mux":1,
+    "smax":2, "smin":2, "umax":2, "umin":2, "absd":4, "abs":2, "mul":1.5, "mux":1,
     "bitand":1, "bitor":1, "bitxor":1, "bitnot":1, "bitmux":1, "floatadd":1, "floatsub":1, "floatmul":1}
 
     graphs = []
@@ -56,16 +60,25 @@ def read_subgraphs(file_ind_pairs, op_types):
                 graphs_per_file.append(nx.MultiDiGraph())
                 graphs_sizes[graph_ind] = 0
             elif 'v' in line:
-                if op_types[line.split()[2]] != "none":
-                    if op_types[line.split()[2]] in alu_supported_ops:
-                        op = "alu"
-                    elif op_types[line.split()[2]] in lut_supported_ops:
+                op_in = op_types[line.split()[2]]
+                if op_in != "none":
+                    if op_in == "and" or  op_in == "or" or op_in == "xor":
+                        op = 'bit_alu'
+                    elif op_in == "smax" or op_in == "umax" or op_in == "sge" or op_in == "uge":
+                        op = "gte"
+                    elif op_in == "smin" or op_in == "umin" or op_in == "sle" or op_in == "ule":
+                        op = "lte"
+                    elif op_in == "slt" or op_in == "sgt" or op_in == "ult" or op_in == "ugt" or op_in == "eq":
+                        op = "sub"
+                    elif op_in == "ashr" or op_in == "lshr":
+                        op = "shr"
+                    elif op_in in lut_supported_ops:
                         op = "lut"
                     else:
                         op = line.split()[2]
                     graphs_per_file[graph_ind].add_node(
                         line.split()[1], op=op, alu_ops=[line.split()[2]])
-                    graphs_sizes[graph_ind] += weights[op_types[line.split()[2]]]
+                    graphs_sizes[graph_ind] += weights[op_in]
             elif 'e' in line:
                 graphs_per_file[graph_ind].add_edge(
                     line.split()[1], line.split()[2], port=line.split()[3])
@@ -88,8 +101,14 @@ def read_optypes():
 
     op_types = {str(k): v for k, v in enumerate(curr_ops)}
 
+    special_ops = ["gte", "lte", "sub", "shr"]
+
+    for op in special_ops:
+        if op not in op_types:
+            op_types[op] = op
 
     op_types["alu"] = "alu"
+    op_types["bit_alu"] = "bit_alu"
     op_types["lut"] = "lut"
     op_types["input"] = "input"
     op_types["bit_input"] = "bit_input"
@@ -105,8 +124,9 @@ def read_optypes():
 def add_primitive_ops(graphs, op_types_flipped):
     weights = {"const":1, "bitconst":1, "and":1, "or":1, "xor":1, "shl":1, "lshr":1, "ashr":1, "add":1, "sub":1,
     "sle":1, "sge":1, "ule":1, "uge":1, "eq":1, "slt":1, "sgt":1, "ult":1, "ugt":1, 
-    "smax":2, "smin":2, "umax":2, "umin":2, "absd":4, "abs":2, "mul":1, "mux":1,
-    "bitand":1, "bitor":1, "bitxor":1, "bitnot":1, "bitmux":1, "floatadd":1, "floatsub":1, "floatmul":1}
+    "smax":2, "smin":2, "umax":2, "umin":2, "absd":4, "abs":2, "mul":1.5, "mux":1,
+    "bitand":1, "bitor":1, "bitxor":1, "bitnot":1, "bitmux":1, "floatadd":1, "floatsub":1, "floatmul":1, "bit_alu":1,
+    "gte":1, "lte":1, "sub":1, "shr":1}
 
     with open(".temp/used_ops.txt", "rb") as file:
         used_ops = pickle.load(file)
@@ -119,12 +139,29 @@ def add_primitive_ops(graphs, op_types_flipped):
     for ind, op in enumerate(used_ops):
         # if op != "const" and op != "bitconst":
         op_graph = nx.MultiDiGraph()
-        if op in alu_supported_ops:
-            op_graph.add_node('0', op='alu', alu_ops=[op_types_flipped[op]])
+        
+        if op == "and" or  op == "or" or op == "xor":
+            op_t = 'bit_alu'
+            op_graph.add_node('0', op=op_types_flipped[op_t], alu_ops=[op_types_flipped[op]])
+        elif op == "smax" or op == "umax" or op == "sge" or op == "uge":
+            op_t = "gte"
+            op_graph.add_node('0', op=op_types_flipped[op_t], alu_ops=[op_types_flipped[op]])
+        elif op == "smin" or op == "umin" or op == "sle" or op == "ule":
+            op_t = "lte"
+            op_graph.add_node('0', op=op_types_flipped[op_t], alu_ops=[op_types_flipped[op]])
+        elif op == "slt" or op == "sgt" or op == "ult" or op == "ugt" or op == "eq":
+            op_t = "sub"
+            op_graph.add_node('0', op=op_types_flipped[op_t], alu_ops=[op_types_flipped[op]])
+        elif op == "ashr" or op == "lshr":
+            op_t = "shr"
+            op_graph.add_node('0', op=op_types_flipped[op_t], alu_ops=[op_types_flipped[op]])
         elif op in lut_supported_ops:
-            op_graph.add_node('0', op='lut', alu_ops=[op_types_flipped[op]])
+            op_t = "lut"
+            op_graph.add_node('0', op=op_types_flipped[op_t], alu_ops=[op_types_flipped[op]])
         else:
             op_graph.add_node('0', op=op_types_flipped[op], alu_ops=[op_types_flipped[op]])
+        
+      
         graph_weights[ind] = weights[op]
         primitive_graphs[ind] = op_graph
 
@@ -209,20 +246,31 @@ def merged_subgraph_to_arch(subgraph, op_types):
                 op = op_types[d["op"]]
                 alu_ops = [op_types[x] for x in d["alu_ops"]]
 
-                if op == "mul" or op == "const" or op == "bitconst" or op == "mux":
-                    modules[n]["type"] = op
-                else:
-                    for alu_op in alu_ops:
-                        if alu_op not in alu_supported_ops and alu_op not in lut_supported_ops:
-                            print("Warning: possible unsupported ALU operation found in subgraph:", n)
-                        if alu_op in fp_alu_supported_ops:
-                            op = "fp_alu"
-                    if op == "lut":
-                        modules[n]["type"] = 'lut'
-                    elif op == "fp_alu":
-                        modules[n]["type"] = 'fp_alu'
-                    else:
-                        modules[n]["type"] = 'alu'
+                # if op == "lut":
+                #     modules[n]["type"] = 'lut'
+                # elif op in bitwise_ops:
+                #     modules[n]["type"] = 'bit_alu'
+                # elif op == "smax" or op == "umax" or op == "sge" or op == "uge":
+                #     modules[n]["type"] = "gte"
+                # elif op == "smin" or op == "umin" or op == "sle" or op == "ule":
+                #     modules[n]["type"] = "lte"
+                # elif op == "slt" or op == "sgt" or op == "ult" or op == "ugt" or op == "eq":
+                #     modules[n]["type"] = "sub"
+                # elif op == "ashr" or op == "lshr":
+                #     modules[n]["type"] = "shr"
+                # else:
+                modules[n]["type"] = op
+                    # for alu_op in alu_ops:
+                    #     if alu_op not in alu_supported_ops and alu_op not in lut_supported_ops:
+                    #         print("Warning: possible unsupported ALU operation found in subgraph:", n)
+                    #     if alu_op in fp_alu_supported_ops:
+                    #         op = "fp_alu"
+                    # if op == "lut":
+                    #     modules[n]["type"] = 'lut'
+                    # elif op == "fp_alu":
+                    #     modules[n]["type"] = 'fp_alu'
+                    # else:
+                    #     modules[n]["type"] = 'alu'
 
             ids.append(n)
 
@@ -476,4 +524,11 @@ def check_no_cycles(pair, g1, g1_map_r, g2, g2_map_r):
     return not cycle_exists
     
 
-    
+def gen_verilog():
+    arch = read_arch("outputs/subgraph_archs/subgraph_arch_merged.json")
+    PE_fc = pe_arch_closure(arch)
+    PE = PE_fc(family.MagmaFamily())
+
+    if not os.path.exists('outputs/verilog'):
+        os.makedirs('outputs/verilog')
+    m.compile(f"outputs/verilog/PE", PE, output="coreir-verilog")

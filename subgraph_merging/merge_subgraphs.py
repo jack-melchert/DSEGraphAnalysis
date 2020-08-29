@@ -155,6 +155,7 @@ def construct_compatibility_graph(g1, g2, op_types, op_types_flipped):
     for n0, d0 in left_nodes:
         for n1, d1 in right_nodes:
             if d0['type'] == 'node' and d1['type'] == 'node':
+                # print(d0['op'], " -> ", d1['op'])
                 if d0['op'] == d1['op']:
                     gb.add_edge(n0, n1)
             elif d0['type'] == 'edge' and d1['type'] == 'edge':
@@ -366,6 +367,7 @@ def reconsruct_resulting_graph(c, g1, g2, g1_map, g2_map, op_types):
             b[g2_map[j]] = g1_map[i]
 
 
+    # breakpoint()
     for k,v in b.items():
         if "," in k:
             g2u = k.split(", ")[0]
@@ -442,9 +444,9 @@ def reconsruct_resulting_graph(c, g1, g2, g1_map, g2_map, op_types):
             if d["op"] == "alu":
                 g1.nodes.data(True)[b[n]]['alu_ops'] += d['alu_ops']
 
-
+    # breakpoint()
     for u, v, d in g2.edges.data(True):
-        if not str(u) + ", " + str(v) in b:
+        if not str(u) + ", " + str(v) in b and not g.has_edge(b[u],b[v]):
             g.add_edge(b[u], b[v], port=d['port'])
 
 
@@ -452,7 +454,6 @@ def reconsruct_resulting_graph(c, g1, g2, g1_map, g2_map, op_types):
         plot_reconstructed_graph(g1, g2, g, op_types)
 
     return g, b
-
 
 def merge_subgraphs(file_ind_pairs):
     clean_output_dirs()
@@ -496,12 +497,14 @@ def merge_subgraphs(file_ind_pairs):
         print()
 
 
-    # plot_graph(G, op_types)
+    plot_graph(G, op_types)
     merged_arch = merged_subgraph_to_arch(G, op_types)
     constraints = formulate_rewrite_rules(rrules, merged_arch)
 
     rrules = test_rewrite_rules(constraints)
 
     write_rewrite_rules(rrules)
+
+    gen_verilog()
     
 DEBUG = False

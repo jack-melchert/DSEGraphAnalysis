@@ -29,9 +29,9 @@ def plot_compatibility_graph(g1, g1_map, g2, g2_map, gb, gc, op_types):
     nc = nx.draw_networkx_nodes(
         g,
         pos,
-        node_list=nodes, 
+        # node_list=nodes, 
         node_color=colors,
-        with_labels=False,
+        # with_labels=False,
         node_size=1500,
         alpha=1)
     nx.draw_networkx_labels(g, pos, labels)
@@ -57,9 +57,9 @@ def plot_compatibility_graph(g1, g1_map, g2, g2_map, gb, gc, op_types):
     nc = nx.draw_networkx_nodes(
         g,
         pos,
-        node_list=nodes,
+        # node_list=nodes,
         node_color=colors,
-        with_labels=False,
+        # with_labels=False,
         node_size=1500,
         alpha=1)
     nx.draw_networkx_labels(g, pos, labels)
@@ -184,9 +184,9 @@ def plot_reconstructed_graph(g1, g2, g, op_types):
         nc = nx.draw_networkx_nodes(
             ret_g,
             pos,
-            node_list=nodes,
+            # node_list=nodes,
             node_color=colors,
-            with_labels=False,
+            # with_labels=False,
             node_size=1500,
             cmap=plt.cm.Pastel1,
             alpha=1)
@@ -220,9 +220,9 @@ def plot_graph(g, op_types):
     nc = nx.draw_networkx_nodes(
         ret_g,
         pos,
-        node_list=nodes,
+        # node_list=nodes,
         node_color=colors,
-        with_labels=False,
+        # with_labels=False,
         node_size=1500,
         cmap=plt.cm.Pastel1,
         alpha=1)

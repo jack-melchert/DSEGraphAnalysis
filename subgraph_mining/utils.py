@@ -1,6 +1,6 @@
 import os 
 
-def reverse_subgraph_list(input_filename, output_filename):
+def sort_subgraph_list(input_filename, output_filename, max_ind_set_size):
 
     with open(input_filename) as file:
         lines = file.readlines()
@@ -16,14 +16,22 @@ def reverse_subgraph_list(input_filename, output_filename):
         elif graph_num >= 0:
             out_text[graph_num] += line
 
-    out_text.reverse()
+    inds = sorted(max_ind_set_size.items(), key=lambda x: x[1][2], reverse=True)
+
+    ret_text = []
+
+    for ind in inds:
+        ret_text.append(out_text[ind[0]])
+    
 
     if not os.path.exists('.temp'):
         os.makedirs('.temp')
 
     with open(output_filename, "w") as outfile:
-        for subgraph in out_text:
+        for subgraph in ret_text:
             outfile.write(subgraph)
+
+    return inds
 
 
 def grami_subgraph_mining(input_file, subgraph_inds):
