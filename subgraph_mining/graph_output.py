@@ -24,7 +24,7 @@ def graph_output(dot_file, output_filename, max_ind_set_stats = None):
             graph_num += 1
             subgraph = Digraph(name="cluster_"+str(graph_num))
             if max_ind_set_stats is not None:
-                subgraph.attr(label = f"{graph_num}: occurences:{max_ind_set_stats[graph_num][1][0]} overlaps:{max_ind_set_stats[graph_num][1][1]} sizeMIS:{max_ind_set_stats[graph_num][1][2]}")
+                subgraph.attr(label = f"occurences:{max_ind_set_stats[graph_num][1][0]}\noverlaps:{max_ind_set_stats[graph_num][1][1]}\nsizeMIS:{max_ind_set_stats[graph_num][1][2]}")
         elif 'v' in line:
             subgraph.node(str(graph_num) + "=" + line.split()[1], op_types[line.split()[2]])
         elif 'e' in line:

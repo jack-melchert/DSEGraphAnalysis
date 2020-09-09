@@ -17,6 +17,9 @@ def sort_subgraph_list(input_filename, output_filename, max_ind_set_size):
             out_text[graph_num] += line
 
     inds = sorted(max_ind_set_size.items(), key=lambda x: x[1][2], reverse=True)
+    # breakpoint()
+    # inds = sorted(max_ind_set_size.items(), key=lambda x: x[0], reverse=True)
+    # out_text = out_text.reverse()
 
     ret_text = []
 
