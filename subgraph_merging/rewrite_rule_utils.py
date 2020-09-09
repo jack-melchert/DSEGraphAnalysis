@@ -580,18 +580,24 @@ def test_rewrite_rules(rrules):
 
         peak_eq = importlib.import_module("outputs.peak_eqs.peak_eq_" + str(rr_ind))
         
-        # ir_mapper = arch_mapper.process_ir_instruction(peak_eq.mapping_function_fc)
 
         print("Rewrite rule ", rr_ind)
         pretty_print_binding(rrule["ibinding"])
         pretty_print_binding(rrule["obinding"]) 
 
-        # solution = ir_mapper.solve("btor", external_loop=True)
-        
-        solution = RewriteRule(rrule["ibinding"], rrule["obinding"], peak_eq.mapping_function_fc, PE_fc)
-        # if solution is None:
-        #     print("No rewrite rule found")
-        #     exit()
+        try:
+            solution = RewriteRule(rrule["ibinding"], rrule["obinding"], peak_eq.mapping_function_fc, PE_fc)
+            counter_example = solution.verify()
+        except:
+            print("solving for rr")
+            ir_mapper = arch_mapper.process_ir_instruction(peak_eq.mapping_function_fc)
+            solution = ir_mapper.solve("btor", external_loop=True)
+            if solution is None:
+                print("No rewrite rule found")
+                exit()
+            counter_example = solution.verify()
+
+
         # else:
         #     print("Found rewrite rule!")
             # pretty_print_binding(solution.ibinding)
@@ -599,8 +605,6 @@ def test_rewrite_rules(rrules):
         # rr = RewriteRule(rrule["ibinding"], rrule["obinding"], peak_eq.mapping_function_fc, PE_fc)
 
 
-        counter_example = solution.verify()
-        
         if counter_example is not None: 
             for i in counter_example:
                 for ii in i.items():
@@ -608,6 +612,7 @@ def test_rewrite_rules(rrules):
             exit()
         else:
             print("PASSED rewrite rule verify")
+        
 
         rrules[rr_ind] = solution
     

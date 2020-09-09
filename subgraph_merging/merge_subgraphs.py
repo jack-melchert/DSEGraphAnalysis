@@ -89,8 +89,8 @@ def add_input_and_output_nodes(g, op_types):
 #     ret_g.remove_node("out0")
 #     return ret_g
 
-# comm_ops =  ["and", "or", "xor", "add", "eq", "mul", "alu", "umax", "umin", "smax", "smin"]
-comm_ops =  []
+comm_ops =  ["and", "or", "xor", "add", "eq", "mul", "alu", "umax", "umin", "smax", "smin"]
+# comm_ops =  []
 def construct_compatibility_graph(g1, g2, op_types, op_types_flipped):
 
     gb = nx.Graph()
