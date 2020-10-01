@@ -11,16 +11,9 @@ import copy
 from .utils import *
 from .rewrite_rule_utils import *
 from .plot_utils import *
+from .common import *
 
-def add_input_and_output_nodes(g, op_types):
-
-    bit_input_ops = {
-        "bitand", "bitor", "bitxor", "bitnot", "bitmux"
-    }
-
-    bit_output_ops = {
-        "lut", "sle", "sge", "ule", "uge", "eq", "slt", "sgt", "ult", "ugt", "bitand", "bitor", "bitxor", "bitnot", "bitmux", "bitconst"
-    }
+def add_input_and_output_nodes(g):
 
     input_idx = 0
     bit_input_idx = 0
@@ -89,9 +82,9 @@ def add_input_and_output_nodes(g, op_types):
 #     ret_g.remove_node("out0")
 #     return ret_g
 
-comm_ops =  ["and", "or", "xor", "add", "eq", "mul", "alu", "umax", "umin", "smax", "smin"]
+
 # comm_ops =  []
-def construct_compatibility_graph(g1, g2, op_types, op_types_flipped):
+def construct_compatibility_graph(g1, g2):
 
     gb = nx.Graph()
     g1_map = {}
@@ -355,7 +348,7 @@ def swap_ports(subgraph, dest_node):
 
         print(s, subgraph.nodes.data(True)[s], dest_node, subgraph.nodes.data(True)[dest_node], subgraph.edges[(s, dest_node, 0)])
 
-def reconsruct_resulting_graph(c, g1, g2, g1_map, g2_map, op_types):
+def reconsruct_resulting_graph(c, g1, g2, g1_map, g2_map):
     b = {}
 
     for (i, j) in c:
@@ -458,15 +451,12 @@ def reconsruct_resulting_graph(c, g1, g2, g1_map, g2_map, op_types):
 def merge_subgraphs(file_ind_pairs):
     clean_output_dirs()
 
-    op_types, op_types_flipped = read_optypes()
+    graphs = read_subgraphs(file_ind_pairs)
 
-
-    graphs = read_subgraphs(file_ind_pairs, op_types)
-
-    add_primitive_ops(graphs, op_types_flipped)
+    add_primitive_ops(graphs)
 
     for graph in graphs:
-        add_input_and_output_nodes(graph, op_types)
+        add_input_and_output_nodes(graph)
 
     rrules = []
 
@@ -474,17 +464,17 @@ def merge_subgraphs(file_ind_pairs):
     mappings = []
 
     for i in range(1, len(graphs)):
-        gc, g1_map, g2_map = construct_compatibility_graph(G, graphs[i], op_types, op_types_flipped)
+        gc, g1_map, g2_map = construct_compatibility_graph(G, graphs[i])
 
         C = FindMaximumWeightClique(gc)
 
-        G, new_mapping = reconsruct_resulting_graph(C, G, graphs[i], g1_map, g2_map, op_types)
+        G, new_mapping = reconsruct_resulting_graph(C, G, graphs[i], g1_map, g2_map)
 
         if i == 1:
             print("subgraph ", 0)
             new_mapping_0 = {k:k for k in graphs[0].nodes}
             new_mapping_0.update({u + ", " + v:u + ", " + v for (u,v,z) in graphs[0].edges})
-            node_dict = subgraph_to_peak(graphs[0], 0, new_mapping_0, op_types)
+            node_dict = subgraph_to_peak(graphs[0], 0, new_mapping_0)
             rrules.append(
                 gen_rewrite_rule(node_dict))
             mappings.append(new_mapping_0)
@@ -492,13 +482,13 @@ def merge_subgraphs(file_ind_pairs):
 
         print("subgraph ", i)
         mappings.append(new_mapping)
-        node_dict = subgraph_to_peak(graphs[i], i, new_mapping, op_types)
+        node_dict = subgraph_to_peak(graphs[i], i, new_mapping)
         rrules.append(gen_rewrite_rule(node_dict))
         print()
 
 
-    plot_graph(G, op_types)
-    merged_arch = merged_subgraph_to_arch(G, op_types)
+    plot_graph(G)
+    merged_arch = merged_subgraph_to_arch(G)
     constraints = formulate_rewrite_rules(rrules, merged_arch)
 
     rrules = test_rewrite_rules(constraints)

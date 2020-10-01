@@ -15,16 +15,14 @@ from peak.assembler.assembled_adt import  AssembledADT
 from peak.assembler.assembler import Assembler
 
 
-# from peak_gen.sim import wrapped_pe_arch_closure
 from peak_gen.peak_wrapper import wrapped_peak_class
 from peak_gen.arch import read_arch, graph_arch
 from peak_gen.isa import inst_arch_closure, ALU_t, Signed_t, MUL_t, BIT_ALU_t
 from peak_gen.asm import asm_arch_closure
 from peak_gen.cond import Cond_t
 
-lut_supported_ops = {
-    "bitand", "bitor", "bitxor", "bitnot", "bitmux"
-}
+from .common import *
+
 
 def gen_rewrite_rule(node_dict):
     rr = {}
@@ -45,9 +43,6 @@ def gen_rewrite_rule(node_dict):
 
 def formulate_rewrite_rules(rrules, merged_arch):
 
-    bit_output_ops = {
-        "sle", "sge", "ule", "uge", "eq", "slt", "sgt", "ult", "ugt", "bitand", "bitor", "bitxor", "bitnot", "bitmux"
-    }
 
     op_map = {}
 

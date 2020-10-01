@@ -1,9 +1,9 @@
 from itertools import count, combinations
 import networkx as nx
 import matplotlib.pyplot as plt
+from .common import *
 
-
-def plot_compatibility_graph(g1, g1_map, g2, g2_map, gb, gc, op_types):
+def plot_compatibility_graph(g1, g1_map, g2, g2_map, gb, gc):
     plt.subplot(1, 4, 1)
     plt.margins(0.2)
     g = g1
@@ -157,7 +157,7 @@ def plot_max_weight_clique(gc, widths):
     plt.show()
 
 
-def plot_reconstructed_graph(g1, g2, g, op_types):
+def plot_reconstructed_graph(g1, g2, g):
     graphs = [g1, g2, g]
     for i, g in enumerate(graphs):
 
@@ -195,7 +195,7 @@ def plot_reconstructed_graph(g1, g2, g, op_types):
     plt.show()
 
 
-def plot_graph(g, op_types):
+def plot_graph(g):
 
 
     ret_g = g.copy()

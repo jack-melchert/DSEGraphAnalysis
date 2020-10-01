@@ -2,11 +2,9 @@ import json
 import sys
 import os
 import pickle
+from subgraph_merging.common import *
 
 def convert_dot(coreir_files):
-
-
-
     if not os.path.exists('.temp'):
         os.makedirs('.temp')
     if not os.path.exists('outputs'):
@@ -14,13 +12,6 @@ def convert_dot(coreir_files):
     op_types = {}
     op_types["none"] = "0"
     instance_names = {}
-    supported_ops =  ["mul", "const", "not", "and", "or", "xor", "shl", \
-                        "lshr", "ashr", "neg", "add", "sub", \
-                        "sle", "sge", "ule", "uge", "eq", "mux", \
-                        "slt", "sgt", "ult", "ugt", "smax", "smin", \
-                        "umax", "umin", "absd", "abs", \
-                        "bitnot", "bitconst", "bitand", "bitor", "bitxor", "bitmux", \
-                        "floatadd", "floatsub", "floatmul"]
     used_ops = set()
 
     unused_ops = set()
