@@ -4,7 +4,6 @@ import os
 
 from subgraph_mining.convert_dot import convert_dot
 from subgraph_mining.graph_output import graph_output
-from subgraph_mining.convert_subgraphs_to_arch import convert_subgraphs_to_arch
 from subgraph_mining.utils import *
 from subgraph_merging.merge_subgraphs import merge_subgraphs
 from subgraph_mining.find_maximal_ind_set import find_maximal_independent_set

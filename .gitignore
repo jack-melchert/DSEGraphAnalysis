@@ -105,3 +105,12 @@ venv.bak/
 
 # magma
 .magma
+
+./GraMi/Output.txt
+./GraMi/grami_log.txt
+.ast_tools/
+.temp/
+arch_graph
+arch_graph.pdf
+outputs/
+pdf/

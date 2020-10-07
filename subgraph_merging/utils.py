@@ -1,43 +1,22 @@
+import sys
 import os
 import json
 import copy
 import shutil 
 import ast
-import networkx as nx
 import pickle
+import networkx as nx
+import magma as m
+
 from peak_gen.sim import pe_arch_closure
 from peak_gen.arch import read_arch, graph_arch
-import magma as m
-import sys
+
 from peak import family
 
-primitive_ops = {
-    "and", "or", "xor", "shl", "lshr", "ashr", "add", "sub",
-    "sle", "sge", "ule", "uge", "eq", "slt", "sgt", "ult", "ugt", 
-    "smax", "smin", "umax", "umin", "absd", "abs", "mul", "mux",
-    "bitand", "bitor", "bitxor", "bitnot", "bitmux", "floatadd", "floatsub", "floatmul"
-}
-
-alu_supported_ops = {
-    "and", "or", "xor", "shl", "lshr", "ashr", "add", "sub",
-    "sle", "sge", "ule", "uge", "eq", "slt", "sgt", "ult", "ugt", 
-    "smax", "smin", "umax", "umin", "absd", "abs", "floatadd", "floatsub", "floatmul"
-}
-
-fp_alu_supported_ops = {
-   "floatadd", "floatsub", "floatmul"
-}
-
-lut_supported_ops = {
-    "bitand", "bitor", "bitxor", "bitnot", "bitmux"
-}
-
-bit_output_ops = {
-    "sle", "sge", "ule", "uge", "eq", "slt", "sgt", "ult", "ugt", "bitand", "bitor", "bitxor", "bitnot", "bitmux", "bitconst"
-}
+import subgraph_merging.config as config
 
 
-def read_subgraphs(file_ind_pairs, op_types):
+def read_subgraphs(file_ind_pairs):
 
     weights = {"const":1, "and":1, "or":1, "xor":1, "shl":1, "lshr":1, "ashr":1, "add":1, "sub":1,
     "sle":1, "sge":1, "ule":1, "uge":1, "eq":1, "slt":1, "sgt":1, "ult":1, "ugt":1, 
@@ -60,7 +39,7 @@ def read_subgraphs(file_ind_pairs, op_types):
                 graphs_per_file.append(nx.MultiDiGraph())
                 graphs_sizes[graph_ind] = 0
             elif 'v' in line:
-                op_in = op_types[line.split()[2]]
+                op_in = config.op_types[line.split()[2]]
                 if op_in != "none":
                     if op_in == "and" or  op_in == "or" or op_in == "xor":
                         op = 'bit_alu'
@@ -72,7 +51,7 @@ def read_subgraphs(file_ind_pairs, op_types):
                         op = "sub"
                     elif op_in == "ashr" or op_in == "lshr":
                         op = "shr"
-                    elif op_in in lut_supported_ops:
+                    elif op_in in config.lut_supported_ops:
                         op = "lut"
                     else:
                         op = line.split()[2]
@@ -88,40 +67,9 @@ def read_subgraphs(file_ind_pairs, op_types):
 
     return graphs
 
-def read_optypes():
-    with open(".temp/op_types.txt", "rb") as file:
-        op_types_from_file = pickle.load(file)
-
-    curr_ops = [*op_types_from_file]
-
-    for op in primitive_ops:
-        if op not in curr_ops:
-            curr_ops.append(op)
 
 
-    op_types = {str(k): v for k, v in enumerate(curr_ops)}
-
-    special_ops = ["gte", "lte", "sub", "shr"]
-
-    for op in special_ops:
-        if op not in op_types:
-            op_types[op] = op
-
-    op_types["alu"] = "alu"
-    op_types["bit_alu"] = "bit_alu"
-    op_types["lut"] = "lut"
-    op_types["input"] = "input"
-    op_types["bit_input"] = "bit_input"
-    op_types["const_input"] = "const_input"
-    op_types["bit_const_input"] = "bit_const_input"
-    op_types["output"] = "output"
-    op_types["bit_output"] = "bit_output"
-
-    op_types_flipped = {v: k for k, v in op_types.items()}
-
-    return op_types, op_types_flipped
-
-def add_primitive_ops(graphs, op_types_flipped):
+def add_primitive_ops(graphs):
     weights = {"const":1, "bitconst":1, "and":1, "or":1, "xor":1, "shl":1, "lshr":1, "ashr":1, "add":1, "sub":1,
     "sle":1, "sge":1, "ule":1, "uge":1, "eq":1, "slt":1, "sgt":1, "ult":1, "ugt":1, 
     "smax":2, "smin":2, "umax":2, "umin":2, "absd":4, "abs":2, "mul":1.5, "mux":1,
@@ -142,24 +90,24 @@ def add_primitive_ops(graphs, op_types_flipped):
         
         if op == "and" or  op == "or" or op == "xor":
             op_t = 'bit_alu'
-            op_graph.add_node('0', op=op_types_flipped[op_t], alu_ops=[op_types_flipped[op]])
+            op_graph.add_node('0', op=config.op_types_flipped[op_t], alu_ops=[config.op_types_flipped[op]])
         elif op == "smax" or op == "umax" or op == "sge" or op == "uge":
             op_t = "gte"
-            op_graph.add_node('0', op=op_types_flipped[op_t], alu_ops=[op_types_flipped[op]])
+            op_graph.add_node('0', op=config.op_types_flipped[op_t], alu_ops=[config.op_types_flipped[op]])
         elif op == "smin" or op == "umin" or op == "sle" or op == "ule":
             op_t = "lte"
-            op_graph.add_node('0', op=op_types_flipped[op_t], alu_ops=[op_types_flipped[op]])
+            op_graph.add_node('0', op=config.op_types_flipped[op_t], alu_ops=[config.op_types_flipped[op]])
         elif op == "slt" or op == "sgt" or op == "ult" or op == "ugt" or op == "eq":
             op_t = "sub"
-            op_graph.add_node('0', op=op_types_flipped[op_t], alu_ops=[op_types_flipped[op]])
+            op_graph.add_node('0', op=config.op_types_flipped[op_t], alu_ops=[config.op_types_flipped[op]])
         elif op == "ashr" or op == "lshr":
             op_t = "shr"
-            op_graph.add_node('0', op=op_types_flipped[op_t], alu_ops=[op_types_flipped[op]])
-        elif op in lut_supported_ops:
+            op_graph.add_node('0', op=config.op_types_flipped[op_t], alu_ops=[config.op_types_flipped[op]])
+        elif op in config.lut_supported_ops:
             op_t = "lut"
-            op_graph.add_node('0', op=op_types_flipped[op_t], alu_ops=[op_types_flipped[op]])
+            op_graph.add_node('0', op=config.op_types_flipped[op_t], alu_ops=[config.op_types_flipped[op]])
         else:
-            op_graph.add_node('0', op=op_types_flipped[op], alu_ops=[op_types_flipped[op]])
+            op_graph.add_node('0', op=config.op_types_flipped[op], alu_ops=[config.op_types_flipped[op]])
         
       
         graph_weights[ind] = weights[op]
@@ -220,9 +168,7 @@ def sort_modules(modules):
     return output_modules
 
 
-def merged_subgraph_to_arch(subgraph, op_types):
-
-
+def merged_subgraph_to_arch(subgraph):
 
     arch = {}
     arch["input_width"] = 16
@@ -243,8 +189,8 @@ def merged_subgraph_to_arch(subgraph, op_types):
                 modules[n] = {}
                 modules[n]["id"] = n
 
-                op = op_types[d["op"]]
-                alu_ops = [op_types[x] for x in d["alu_ops"]]
+                op = config.op_types[d["op"]]
+                alu_ops = [config.op_types[x] for x in d["alu_ops"]]
 
                 # if op == "lut":
                 #     modules[n]["type"] = 'lut'
@@ -261,7 +207,7 @@ def merged_subgraph_to_arch(subgraph, op_types):
                 # else:
                 modules[n]["type"] = op
                     # for alu_op in alu_ops:
-                    #     if alu_op not in alu_supported_ops and alu_op not in lut_supported_ops:
+                    #     if alu_op not in alu_supported_ops and alu_op not in config.lut_supported_ops:
                     #         print("Warning: possible unsupported ALU operation found in subgraph:", n)
                     #     if alu_op in fp_alu_supported_ops:
                     #         op = "fp_alu"
@@ -299,9 +245,9 @@ def merged_subgraph_to_arch(subgraph, op_types):
         
         # Add to output mux
         if subgraph.nodes.data(True)[v]["op"] == "output":
-            # alu_ops = [op_types[x] for x in subgraph.nodes.data(True)[u]["alu_ops"]]
+            # alu_ops = [config.op_types[x] for x in subgraph.nodes.data(True)[u]["alu_ops"]]
             # for alu_op in alu_ops:
-            #     if alu_op in bit_output_ops:
+            #     if alu_op in config.bit_output_ops:
             #         bit_outputs.add(u)
 
             outputs.add(u)
@@ -380,19 +326,19 @@ def construct_eq(in0, in1, op, absd_count, in2=""):
         "in_2", in2), absd_str.replace("in_0", in0).replace("in_1", in1), absd_count
 
 
-def subgraph_to_peak(subgraph, sub_idx, b, op_types):
+def subgraph_to_peak(subgraph, sub_idx, b):
     absd_count = 0
     node_dict = {}
 
 
     for n, d in subgraph.nodes.data(True):
-        if op_types[subgraph.nodes[n]['alu_ops'][0]] != "input" \
-            and op_types[subgraph.nodes[n]['alu_ops'][0]] != "bit_input" \
-            and op_types[subgraph.nodes[n]['alu_ops'][0]] != "const_input"\
-            and op_types[subgraph.nodes[n]['alu_ops'][0]] != "bit_const_input":
+        if config.op_types[subgraph.nodes[n]['alu_ops'][0]] != "input" \
+            and config.op_types[subgraph.nodes[n]['alu_ops'][0]] != "bit_input" \
+            and config.op_types[subgraph.nodes[n]['alu_ops'][0]] != "const_input"\
+            and config.op_types[subgraph.nodes[n]['alu_ops'][0]] != "bit_const_input":
 
             pred = {}
-            pred['alu_op'] = op_types[subgraph.nodes[n]['alu_ops'][0]]
+            pred['alu_op'] = config.op_types[subgraph.nodes[n]['alu_ops'][0]]
             for s in subgraph.pred[n]:
                 pred[subgraph.edges[(s, n, 0)]['port']] = b[s]
             node_dict[b[n]] = pred
@@ -428,7 +374,7 @@ def subgraph_to_peak(subgraph, sub_idx, b, op_types):
                             str(eq_dict.get(data['1'], data['1'])), data['alu_op'], absd_count,
                             str(eq_dict.get(data['2'], data['2'])))
                             last_eq = eq_dict[node]
-                            output_type = "Bit" if data['alu_op'] in bit_output_ops else "Data"
+                            output_type = "Bit" if data['alu_op'] in config.bit_output_ops else "Data"
                             node_dict.pop(node)
                             absd_str += absd_str_tmp
                     else:
@@ -438,10 +384,10 @@ def subgraph_to_peak(subgraph, sub_idx, b, op_types):
 
                         absd_str += absd_str_tmp
                         last_eq = eq_dict[node]
-                        output_type = "Bit" if data['alu_op'] in bit_output_ops else "Data"
+                        output_type = "Bit" if data['alu_op'] in config.bit_output_ops else "Data"
                         node_dict.pop(node)
                 if "in" in data['1']:
-                    if data['alu_op'] in lut_supported_ops:
+                    if data['alu_op'] in config.lut_supported_ops:
                         bit_inputs.add(data['1'])
                     else:
                         inputs.add(data['1'])
@@ -452,7 +398,7 @@ def subgraph_to_peak(subgraph, sub_idx, b, op_types):
 
 
             if "in" in data['0']:
-                if data['alu_op'] in lut_supported_ops:
+                if data['alu_op'] in config.lut_supported_ops:
                     bit_inputs.add(data['0'])
                 else:
                     inputs.add(data['0'])
@@ -462,7 +408,7 @@ def subgraph_to_peak(subgraph, sub_idx, b, op_types):
         for node, data in ret_val.items():
             if data['alu_op'] != 'output' and data['alu_op'] != 'bit_output':
                 last_eq = data['0']
-                output_type = "Bit" if data['alu_op'] in bit_output_ops else "Data"
+                output_type = "Bit" if data['alu_op'] in config.bit_output_ops else "Data"
 
     print(last_eq)
 

@@ -1,9 +1,9 @@
 from itertools import count, combinations
 import networkx as nx
 import matplotlib.pyplot as plt
+import subgraph_merging.config as config
 
-
-def plot_compatibility_graph(g1, g1_map, g2, g2_map, gb, gc, op_types):
+def plot_compatibility_graph(g1, g1_map, g2, g2_map, gb, gc):
     plt.subplot(1, 4, 1)
     plt.margins(0.2)
     g = g1
@@ -16,7 +16,7 @@ def plot_compatibility_graph(g1, g1_map, g2, g2_map, gb, gc, op_types):
 
     labels = {}
     for n in nodes:
-        labels[n] = g1_map[n] + "\n" + op_types[g.nodes[n]['op']]
+        labels[n] = g1_map[n] + "\n" + config.op_types[g.nodes[n]['op']]
     pos = nx.nx_agraph.graphviz_layout(g, prog='dot')
     ec = nx.draw_networkx_edges(
         g,
@@ -44,7 +44,7 @@ def plot_compatibility_graph(g1, g1_map, g2, g2_map, gb, gc, op_types):
 
     labels = {}
     for n in nodes:
-        labels[n] = g2_map[n] + "\n" + op_types[g.nodes[n]['op']]
+        labels[n] = g2_map[n] + "\n" + config.op_types[g.nodes[n]['op']]
     pos = nx.nx_agraph.graphviz_layout(g, prog='dot')
     ec = nx.draw_networkx_edges(
         g,
@@ -157,7 +157,7 @@ def plot_max_weight_clique(gc, widths):
     plt.show()
 
 
-def plot_reconstructed_graph(g1, g2, g, op_types):
+def plot_reconstructed_graph(g1, g2, g):
     graphs = [g1, g2, g]
     for i, g in enumerate(graphs):
 
@@ -170,7 +170,7 @@ def plot_reconstructed_graph(g1, g2, g, op_types):
         colors = [mapping[ret_g.nodes[n]['op']] for n in nodes]
         labels = {}
         for n in nodes:
-            labels[n] = op_types[ret_g.nodes[n]['op']] + "\n" + n
+            labels[n] = config.op_types[ret_g.nodes[n]['op']] + "\n" + n
 
         pos = nx.nx_agraph.graphviz_layout(ret_g, prog='dot')
         ec = nx.draw_networkx_edges(
@@ -195,7 +195,7 @@ def plot_reconstructed_graph(g1, g2, g, op_types):
     plt.show()
 
 
-def plot_graph(g, op_types):
+def plot_graph(g):
 
 
     ret_g = g.copy()
@@ -206,7 +206,7 @@ def plot_graph(g, op_types):
     colors = [mapping[ret_g.nodes[n]['op']] for n in nodes]
     labels = {}
     for n in nodes:
-        labels[n] = op_types[ret_g.nodes[n]['op']] + "\n" + n
+        labels[n] = config.op_types[ret_g.nodes[n]['op']] + "\n" + n
 
     pos = nx.nx_agraph.graphviz_layout(ret_g, prog='dot')
     ec = nx.draw_networkx_edges(

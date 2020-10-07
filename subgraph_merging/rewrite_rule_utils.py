@@ -15,16 +15,14 @@ from peak.assembler.assembled_adt import  AssembledADT
 from peak.assembler.assembler import Assembler
 
 
-# from peak_gen.sim import wrapped_pe_arch_closure
 from peak_gen.peak_wrapper import wrapped_peak_class
 from peak_gen.arch import read_arch, graph_arch
 from peak_gen.isa import inst_arch_closure, ALU_t, Signed_t, MUL_t, BIT_ALU_t
 from peak_gen.asm import asm_arch_closure
 from peak_gen.cond import Cond_t
 
-lut_supported_ops = {
-    "bitand", "bitor", "bitxor", "bitnot", "bitmux"
-}
+import subgraph_merging.config as config
+
 
 def gen_rewrite_rule(node_dict):
     rr = {}
@@ -34,7 +32,7 @@ def gen_rewrite_rule(node_dict):
         if not (v['alu_op'] == "const" or v['alu_op'] == "bitconst" or v['alu_op'] == "output" or v['alu_op'] == "bit_output"):
             rr[k]['1'] = v['1']
 
-        if v['alu_op'] == "mux" or v['alu_op'] in lut_supported_ops:
+        if v['alu_op'] == "mux" or v['alu_op'] in config.lut_supported_ops:
             rr[k]['2'] = v['2']
 
         rr[k]['alu_op'] = v['alu_op']
@@ -45,9 +43,6 @@ def gen_rewrite_rule(node_dict):
 
 def formulate_rewrite_rules(rrules, merged_arch):
 
-    bit_output_ops = {
-        "sle", "sge", "ule", "uge", "eq", "slt", "sgt", "ult", "ugt", "bitand", "bitor", "bitxor", "bitnot", "bitmux"
-    }
 
     op_map = {}
 
@@ -582,8 +577,8 @@ def test_rewrite_rules(rrules):
         
 
         print("Rewrite rule ", rr_ind)
-        pretty_print_binding(rrule["ibinding"])
-        pretty_print_binding(rrule["obinding"]) 
+        # pretty_print_binding(rrule["ibinding"])
+        # pretty_print_binding(rrule["obinding"]) 
 
         try:
             solution = RewriteRule(rrule["ibinding"], rrule["obinding"], peak_eq.mapping_function_fc, PE_fc)
