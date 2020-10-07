@@ -7,11 +7,11 @@ import pulp
 import ast
 import os
 import copy
+import subgraph_merging.config as config
 
 from .utils import *
 from .rewrite_rule_utils import *
 from .plot_utils import *
-from .common import *
 
 def add_input_and_output_nodes(g):
 
@@ -21,12 +21,12 @@ def add_input_and_output_nodes(g):
     bit_const_idx = 0
 
     for n, d in g.copy().nodes.data(True):
-        if not op_types[d["op"]] == "const" and not op_types[d["op"]] == "bitconst":
+        if not config.op_types[d["op"]] == "const" and not config.op_types[d["op"]] == "bitconst":
             pred = {}
             for s in g.pred[n]:
                 pred[g.edges[(s, n, 0)]['port']] = s
             if '0' not in pred:
-                if op_types[d["alu_ops"][0]] in bit_input_ops:
+                if config.op_types[d["alu_ops"][0]] in config.bit_input_ops:
                     g.add_node("bit_in" + str(bit_input_idx), op="bit_input", alu_ops=["bit_input"])
                     g.add_edge("bit_in" + str(bit_input_idx), n, port='0')
                     bit_input_idx += 1                    
@@ -35,7 +35,7 @@ def add_input_and_output_nodes(g):
                     g.add_edge("in" + str(input_idx), n, port='0')
                     input_idx += 1
             if '1' not in pred:
-                if op_types[d["alu_ops"][0]] in bit_input_ops:
+                if config.op_types[d["alu_ops"][0]] in config.bit_input_ops:
                     g.add_node("bit_in" + str(bit_input_idx), op="bit_input", alu_ops=["bit_input"])
                     g.add_edge("bit_in" + str(bit_input_idx), n, port='1')
                     bit_input_idx += 1                    
@@ -43,13 +43,13 @@ def add_input_and_output_nodes(g):
                     g.add_node("in" + str(input_idx), op="input", alu_ops=["input"])
                     g.add_edge("in" + str(input_idx), n, port='1')
                     input_idx += 1
-            if op_types[d["alu_ops"][0]] in bit_input_ops or op_types[d["alu_ops"][0]] == "mux":
+            if config.op_types[d["alu_ops"][0]] in config.bit_input_ops or config.op_types[d["alu_ops"][0]] == "mux":
                 if '2' not in pred:
                     g.add_node("bit_in" + str(bit_input_idx), op="bit_input", alu_ops=["bit_input"])
                     g.add_edge("bit_in" + str(bit_input_idx), n, port='2')
                     bit_input_idx += 1
         else:
-            if op_types[d["op"]] == "const":
+            if config.op_types[d["op"]] == "const":
                 g.add_node(
                     "const" + str(const_idx),
                     op="const_input",
@@ -65,7 +65,7 @@ def add_input_and_output_nodes(g):
                 bit_const_idx += 1
     for n, d in g.copy().nodes.data(True):
         if len(list(g.successors(n))) == 0:
-            if op_types[d["alu_ops"][0]] in bit_output_ops:
+            if config.op_types[d["alu_ops"][0]] in config.bit_output_ops:
                 g.add_node("bit_out0", op="bit_output", alu_ops=["bit_output"])
                 g.add_edge(n, "bit_out0", port='0')
             else:
@@ -83,7 +83,7 @@ def add_input_and_output_nodes(g):
 #     return ret_g
 
 
-# comm_ops =  []
+# config.comm_ops =  []
 def construct_compatibility_graph(g1, g2):
 
     gb = nx.Graph()
@@ -156,12 +156,12 @@ def construct_compatibility_graph(g1, g2):
                     if d0['port'] == d1['port']:
                         gb.add_edge(n0, n1)
                     else:
-                        if op_types[d1['alu_ops1'][0]] in comm_ops:
+                        if config.op_types[d1['alu_ops1'][0]] in config.comm_ops:
                             gb.add_edge(n0, n1)
 
     weights = {}
 
-    for k, v in op_types_flipped.items():
+    for k, v in config.op_types_flipped.items():
         if k == "mul":
             weights[str(v)] = 2030
         elif k == "const":
@@ -280,7 +280,7 @@ def construct_compatibility_graph(g1, g2):
                 gc.add_edge(pair[0][0], pair[1][0])
 
     if DEBUG:
-        plot_compatibility_graph(g1, g1_map, g2, g2_map, gb, gc, op_types)
+        plot_compatibility_graph(g1, g1_map, g2, g2_map, gb, gc, config.op_types)
 
     return gc, g1_map_r, g2_map_r
 
@@ -368,7 +368,7 @@ def reconsruct_resulting_graph(c, g1, g2, g1_map, g2_map):
             g1u = v.split(", ")[0]
             g1v = v.split(", ")[1]
             if g1.edges[(g1u, g1v, 0)]['port'] != g2.edges[(g2u, g2v, 0)]['port'] and (g1u, g1v, 1) not in g1.edges:
-                if op_types[g2.nodes.data(True)[g2v]['alu_ops'][0]] in comm_ops:
+                if config.op_types[g2.nodes.data(True)[g2v]['alu_ops'][0]] in config.comm_ops:
                     swap_ports(g2, g2v)
                 else:
                     print("Oops, something went wrong")
@@ -444,12 +444,29 @@ def reconsruct_resulting_graph(c, g1, g2, g1_map, g2_map):
 
 
     if DEBUG:
-        plot_reconstructed_graph(g1, g2, g, op_types)
+        plot_reconstructed_graph(g1, g2, g, config.op_types)
 
     return g, b
 
 def merge_subgraphs(file_ind_pairs):
     clean_output_dirs()
+
+    with open(".temp/op_types.txt", "rb") as file:
+        op_types_from_file = pickle.load(file)
+
+    curr_ops = [*op_types_from_file]
+
+    for op in config.primitive_ops:
+        if op not in curr_ops:
+            curr_ops.append(op)
+
+    config.op_types = {str(k): v for k, v in enumerate(curr_ops)}
+
+    for op in config.non_coreir_ops:
+        if op not in config.op_types:
+            config.op_types[op] = op
+
+    config.op_types_flipped = {v: k for k, v in config.op_types.items()}
 
     graphs = read_subgraphs(file_ind_pairs)
 

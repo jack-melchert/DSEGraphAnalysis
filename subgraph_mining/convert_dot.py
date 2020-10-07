@@ -2,7 +2,7 @@ import json
 import sys
 import os
 import pickle
-from subgraph_merging.common import *
+import subgraph_merging.config as config
 
 def convert_dot(coreir_files):
     if not os.path.exists('.temp'):
@@ -57,7 +57,7 @@ def convert_dot(coreir_files):
                                     op = inst['modref'].split('.')[1]
 
                         
-                            if op in supported_ops:
+                            if op in config.supported_ops:
                                 used_ops.add(op)
 
                                 if op not in op_types:

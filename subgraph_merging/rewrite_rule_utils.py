@@ -21,7 +21,7 @@ from peak_gen.isa import inst_arch_closure, ALU_t, Signed_t, MUL_t, BIT_ALU_t
 from peak_gen.asm import asm_arch_closure
 from peak_gen.cond import Cond_t
 
-from .common import *
+import subgraph_merging.config as config
 
 
 def gen_rewrite_rule(node_dict):
@@ -32,7 +32,7 @@ def gen_rewrite_rule(node_dict):
         if not (v['alu_op'] == "const" or v['alu_op'] == "bitconst" or v['alu_op'] == "output" or v['alu_op'] == "bit_output"):
             rr[k]['1'] = v['1']
 
-        if v['alu_op'] == "mux" or v['alu_op'] in lut_supported_ops:
+        if v['alu_op'] == "mux" or v['alu_op'] in config.lut_supported_ops:
             rr[k]['2'] = v['2']
 
         rr[k]['alu_op'] = v['alu_op']
@@ -577,8 +577,8 @@ def test_rewrite_rules(rrules):
         
 
         print("Rewrite rule ", rr_ind)
-        pretty_print_binding(rrule["ibinding"])
-        pretty_print_binding(rrule["obinding"]) 
+        # pretty_print_binding(rrule["ibinding"])
+        # pretty_print_binding(rrule["obinding"]) 
 
         try:
             solution = RewriteRule(rrule["ibinding"], rrule["obinding"], peak_eq.mapping_function_fc, PE_fc)

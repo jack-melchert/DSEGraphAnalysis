@@ -1,7 +1,7 @@
 from itertools import count, combinations
 import networkx as nx
 import matplotlib.pyplot as plt
-from .common import *
+import subgraph_merging.config as config
 
 def plot_compatibility_graph(g1, g1_map, g2, g2_map, gb, gc):
     plt.subplot(1, 4, 1)
@@ -16,7 +16,7 @@ def plot_compatibility_graph(g1, g1_map, g2, g2_map, gb, gc):
 
     labels = {}
     for n in nodes:
-        labels[n] = g1_map[n] + "\n" + op_types[g.nodes[n]['op']]
+        labels[n] = g1_map[n] + "\n" + config.op_types[g.nodes[n]['op']]
     pos = nx.nx_agraph.graphviz_layout(g, prog='dot')
     ec = nx.draw_networkx_edges(
         g,
@@ -44,7 +44,7 @@ def plot_compatibility_graph(g1, g1_map, g2, g2_map, gb, gc):
 
     labels = {}
     for n in nodes:
-        labels[n] = g2_map[n] + "\n" + op_types[g.nodes[n]['op']]
+        labels[n] = g2_map[n] + "\n" + config.op_types[g.nodes[n]['op']]
     pos = nx.nx_agraph.graphviz_layout(g, prog='dot')
     ec = nx.draw_networkx_edges(
         g,
@@ -170,7 +170,7 @@ def plot_reconstructed_graph(g1, g2, g):
         colors = [mapping[ret_g.nodes[n]['op']] for n in nodes]
         labels = {}
         for n in nodes:
-            labels[n] = op_types[ret_g.nodes[n]['op']] + "\n" + n
+            labels[n] = config.op_types[ret_g.nodes[n]['op']] + "\n" + n
 
         pos = nx.nx_agraph.graphviz_layout(ret_g, prog='dot')
         ec = nx.draw_networkx_edges(
@@ -206,7 +206,7 @@ def plot_graph(g):
     colors = [mapping[ret_g.nodes[n]['op']] for n in nodes]
     labels = {}
     for n in nodes:
-        labels[n] = op_types[ret_g.nodes[n]['op']] + "\n" + n
+        labels[n] = config.op_types[ret_g.nodes[n]['op']] + "\n" + n
 
     pos = nx.nx_agraph.graphviz_layout(ret_g, prog='dot')
     ec = nx.draw_networkx_edges(
