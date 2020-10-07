@@ -4,7 +4,7 @@ import os
 import pickle
 import subgraph_merging.config as config
 
-def convert_dot(coreir_files):
+def convert_coreir_to_dot(coreir_files):
     if not os.path.exists('.temp'):
         os.makedirs('.temp')
     if not os.path.exists('outputs'):

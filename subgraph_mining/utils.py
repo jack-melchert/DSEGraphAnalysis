@@ -1,4 +1,4 @@
-import os 
+import os, pickle
 
 def sort_subgraph_list(input_filename, output_filename, max_ind_set_size):
 
@@ -9,12 +9,17 @@ def sort_subgraph_list(input_filename, output_filename, max_ind_set_size):
 
     out_text = []
 
-    for line in lines:
+    for line in lines.copy():
         if ':' in line:
             graph_num += 1
             out_text.append(line)
         elif graph_num >= 0:
-            out_text[graph_num] += line
+            if line[0] == 'v':
+                if line.split(" ")[2][0] != '0':
+                    out_text[graph_num] += line
+            elif line[0] == 'e':
+                if line.split(" ")[3][0] != '5':
+                    out_text[graph_num] += line
 
     inds = sorted(max_ind_set_size.items(), key=lambda x: x[1][2], reverse=True)
     # breakpoint()
@@ -58,7 +63,7 @@ def grami_subgraph_mining(input_file, subgraph_inds):
 
             num_subgraphs = 0
             
-            for line in lines:
+            for line in lines.copy():
                 if ':' in line:
                     num_subgraphs += 1
 

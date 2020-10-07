@@ -2,7 +2,7 @@ import argparse
 import shutil
 import os
 
-from subgraph_mining.convert_dot import convert_dot
+from subgraph_mining.convert_dot import convert_coreir_to_dot
 from subgraph_mining.graph_output import graph_output
 from subgraph_mining.utils import *
 from subgraph_merging.merge_subgraphs import merge_subgraphs
@@ -42,7 +42,7 @@ def main():
         os.system("rm -rf .temp; rm -rf outputs; rm -rf pdf; rm -rf .ast_tools")
         # takes in .json coreIR file, outputs grami_in.txt and op_types.txt
         print("Starting .dot conversion...")
-        convert_dot(file_names)
+        convert_coreir_to_dot(file_names)
         print("Finished .dot conversion")
 
         dot_files = [".temp/" + os.path.basename(f).replace(".json", ".dot") for f in file_names]

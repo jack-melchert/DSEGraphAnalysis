@@ -592,19 +592,14 @@ def test_rewrite_rules(rrules):
                 exit()
             counter_example = solution.verify()
 
-
-        # else:
-        #     print("Found rewrite rule!")
-            # pretty_print_binding(solution.ibinding)
-            # pretty_print_binding(solution.obinding) 
-        # rr = RewriteRule(rrule["ibinding"], rrule["obinding"], peak_eq.mapping_function_fc, PE_fc)
-
-
         if counter_example is not None: 
-            for i in counter_example:
-                for ii in i.items():
-                    print(ii)
-            exit()
+            print("solving for rr")
+            ir_mapper = arch_mapper.process_ir_instruction(peak_eq.mapping_function_fc)
+            solution = ir_mapper.solve("btor", external_loop=True)
+            if solution is None:
+                print("No rewrite rule found")
+                exit()
+            counter_example = solution.verify()
         else:
             print("PASSED rewrite rule verify")
         
