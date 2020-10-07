@@ -110,3 +110,7 @@ venv.bak/
 ./GraMi/grami_log.txt
 .ast_tools/
 .temp/
+arch_graph
+arch_graph.pdf
+outputs/
+pdf/
