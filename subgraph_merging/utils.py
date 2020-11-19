@@ -121,13 +121,11 @@ def add_primitive_ops(graphs):
 
 
 def clean_output_dirs():
-    if os.path.exists('outputs/subgraph_rewrite_rules'):
-        shutil.rmtree("outputs/subgraph_rewrite_rules") 
-    if os.path.exists('outputs/subgraph_archs'):
-        shutil.rmtree("outputs/subgraph_archs")
-    if os.path.exists('outputs/peak_eqs'):
-        shutil.rmtree("outputs/peak_eqs")  
+    if os.path.exists('outputs'):
+        shutil.rmtree("outputs") 
+    os.makedirs('outputs')
 
+    
 def sort_modules(modules):
     ids = []
     output_modules = []
@@ -262,12 +260,12 @@ def merged_subgraph_to_arch(subgraph):
     else:
         arch["bit_outputs"] = []
 
-    if not os.path.exists('outputs/subgraph_archs'):
-        os.makedirs('outputs/subgraph_archs')
+    if not os.path.exists('outputs/'):
+        os.makedirs('outputs/')
 
     arch["modules"] = sort_modules(arch["modules"])
 
-    with open("outputs/subgraph_archs/subgraph_arch_merged.json", "w") as write_file:
+    with open("outputs/PE.json", "w") as write_file:
         write_file.write(json.dumps(arch, indent=4, sort_keys=True))
 
     return arch
@@ -471,7 +469,7 @@ def check_no_cycles(pair, g1, g1_map_r, g2, g2_map_r):
     
 
 def gen_verilog():
-    arch = read_arch("outputs/subgraph_archs/subgraph_arch_merged.json")
+    arch = read_arch("outputs/PE.json")
     PE_fc = pe_arch_closure(arch)
     PE = PE_fc(family.MagmaFamily())
 

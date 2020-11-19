@@ -30,22 +30,3 @@ non_coreir_ops = {"alu", "bit_alu", "lut", "input", "bit_input", "const_input", 
 op_types = []
 op_types_flipped = []
 
-# def read_optypes():
-#     with open(".temp/op_types.txt", "rb") as file:
-#         op_types_from_file = pickle.load(file)
-
-#     curr_ops = [*op_types_from_file]
-
-#     for op in primitive_ops:
-#         if op not in curr_ops:
-#             curr_ops.append(op)
-
-#     global op_types
-#     op_types = {str(k): v for k, v in enumerate(curr_ops)}
-
-#     for op in non_coreir_ops:
-#         if op not in op_types:
-#             op_types[op] = op
-
-#     global op_types_flipped 
-#     op_types_flipped = {v: k for k, v in op_types.items()}

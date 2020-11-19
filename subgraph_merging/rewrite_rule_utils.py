@@ -185,7 +185,7 @@ def formulate_rewrite_rules(rrules, merged_arch):
 
     rrules_out = []
 
-    arch = read_arch("./outputs/subgraph_archs/subgraph_arch_merged.json")
+    arch = read_arch("./outputs/PE.json")
     graph_arch(arch)
     PE_fc = wrapped_peak_class(arch)
     arch_mapper = ArchMapper(PE_fc)
@@ -466,7 +466,7 @@ def formulate_rewrite_rules(rrules, merged_arch):
 
         for k, v in const_mappings.items():
             if v == 0:
-                input_binding.append((peak.mapper.utils.Unbound, ("inst", "const_data", k)))
+                input_binding.append((BitVector[16](0), ("inst", "const_data", k)))
             else:
                 input_binding.append(((v,), ("inst", "const_data", k)))
 
@@ -566,7 +566,7 @@ def formulate_rewrite_rules(rrules, merged_arch):
 
 
 def test_rewrite_rules(rrules):
-    arch = read_arch("./outputs/subgraph_archs/subgraph_arch_merged.json")
+    arch = read_arch("./outputs/PE.json")
     PE_fc = wrapped_peak_class(arch)
     arch_mapper = ArchMapper(PE_fc)
     
@@ -610,27 +610,10 @@ def test_rewrite_rules(rrules):
 
 def write_rewrite_rules(rrules):
     for sub_idx, rrule in enumerate(rrules):
-        rrule_out = {}
-        rrule_out["ibinding"] = []
-        for t in rrule.ibinding:
-            if isinstance(t[0], BitVector):
-                rrule_out["ibinding"].append(tuple([{'type':'BitVector', 'width':len(t[0]), 'value':t[0].value}, t[1]]))
-            elif isinstance(t[0], Bit):
-                rrule_out["ibinding"].append(tuple([{'type':'Bit', 'width':1, 'value':t[0]._value}, t[1]]))
-            elif t[0] == peak.mapper.utils.Unbound:
-                rrule_out["ibinding"].append(tuple(["unbound", t[1]]))
-            else:
-                rrule_out["ibinding"].append(t)
+        serialized_rr = rrule.serialize_bindings()
 
-        rrule_out["obinding"] = []
-        for t in rrule.obinding:
-            if t[0] == peak.mapper.utils.Unbound:
-                rrule_out["obinding"].append(tuple(["unbound", t[1]]))
-            else:
-                rrule_out["obinding"].append(t)
+        if not os.path.exists('outputs/rewrite_rules'):
+            os.makedirs('outputs/rewrite_rules')
 
-        if not os.path.exists('outputs/subgraph_rewrite_rules'):
-            os.makedirs('outputs/subgraph_rewrite_rules')
-
-        with open("outputs/subgraph_rewrite_rules/subgraph_rr_" + str(sub_idx) + ".json", "w") as write_file:
-            write_file.write(json.dumps(rrule_out))
+        with open("outputs/rewrite_rules/rewrite_rule_" + str(sub_idx) + ".json", "w") as write_file:
+            json.dump(serialized_rr, write_file, indent=2)
