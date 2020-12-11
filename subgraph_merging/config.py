@@ -27,6 +27,24 @@ fp_alu_supported_ops = {"floatadd", "floatsub", "floatmul"}
 
 non_coreir_ops = {"alu", "bit_alu", "lut", "input", "bit_input", "const_input", "bit_const_input", "output", "bit_output", "gte", "lte", "sub", "shr"}
 
+weights = {"const":1, "bitconst":1, "and":1, "or":1, "xor":1, "shl":1, "lshr":1, "ashr":1, "add":1, "sub":1,
+    "sle":1, "sge":1, "ule":1, "uge":1, "eq":1, "slt":1, "sgt":1, "ult":1, "ugt":1, 
+    "smax":2, "smin":2, "umax":2, "umin":2, "absd":4, "abs":2, "mul":1.5, "mux":1,
+    "bitand":1, "bitor":1, "bitxor":1, "bitnot":1, "bitmux":1, "floatadd":1, "floatsub":1, "floatmul":1, "bit_alu":1,
+    "gte":1, "lte":1, "sub":1, "shr":1}
+
+op_inputs = {"const":0, "bitconst":0, "and":2, "or":2, "xor":2, "shl":2, "lshr":2, "ashr":2, "add":2, "sub":2,
+    "sle":2, "sge":2, "ule":2, "uge":2, "eq":2, "slt":2, "sgt":2, "ult":2, "ugt":2, 
+    "smax":2, "smin":2, "umax":2, "umin":2, "absd":2, "abs":1, "mul":2, "mux":3,
+    "bitand":2, "bitor":2, "bitxor":2, "bitnot":1, "bitmux":3, "floatadd":2, "floatsub":2, "floatmul":2, "bit_alu":2,
+    "gte":2, "lte":2, "sub":2, "shr":2}
+
+op_bitwidth = {"const": 16, "bitconst": 1, "and": 16, "or": 16, "xor": 16, "shl": 16, "lshr": 16, "ashr": 16, "add": 16, "sub": 16,
+    "sle": 16, "sge": 16, "ule": 16, "uge": 16, "eq": 16, "slt": 16, "sgt": 16, "ult": 16, "ugt": 16, 
+    "smax": 16, "smin": 16, "umax": 16, "umin": 16, "absd": 16, "abs": 16, "mul": 16, "mux": 16,
+    "bitand": 1, "bitor": 1, "bitxor": 1, "bitnot": 1, "bitmux": 1, "floatadd": 16, "floatsub": 16, "floatmul": 16, "bit_alu": 16,
+    "gte": 16, "lte": 16, "sub": 16, "shr": 16}
+
 op_types = []
 op_types_flipped = []
 

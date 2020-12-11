@@ -14,14 +14,11 @@ from peak_gen.arch import read_arch, graph_arch
 from peak import family
 
 import subgraph_merging.config as config
+from .subgraph import Subgraph
 
 
 def read_subgraphs(file_ind_pairs):
 
-    weights = {"const":1, "and":1, "or":1, "xor":1, "shl":1, "lshr":1, "ashr":1, "add":1, "sub":1,
-    "sle":1, "sge":1, "ule":1, "uge":1, "eq":1, "slt":1, "sgt":1, "ult":1, "ugt":1, 
-    "smax":2, "smin":2, "umax":2, "umin":2, "absd":4, "abs":2, "mul":1.5, "mux":1,
-    "bitand":1, "bitor":1, "bitxor":1, "bitnot":1, "bitmux":1, "floatadd":1, "floatsub":1, "floatmul":1}
 
     graphs = []
     graphs_sizes = {}
@@ -56,8 +53,8 @@ def read_subgraphs(file_ind_pairs):
                     else:
                         op = line.split()[2]
                     graphs_per_file[graph_ind].add_node(
-                        line.split()[1], op=op, alu_ops=[line.split()[2]])
-                    graphs_sizes[graph_ind] += weights[op_in]
+                        line.split()[1], op=op, op_config=[line.split()[2]])
+                    graphs_sizes[graph_ind] += config.weights[op_in]
             elif 'e' in line:
                 graphs_per_file[graph_ind].add_edge(
                     line.split()[1], line.split()[2], port=line.split()[3])
@@ -65,16 +62,63 @@ def read_subgraphs(file_ind_pairs):
         sorted_graphs = sorted(graphs_sizes.items(), key=lambda x: x[1], reverse=True)
         graphs += [graphs_per_file[i[0]] for i in sorted_graphs if i[0] in inds]
 
-    return graphs
+
+    subgraphs = []
+    for ind, graph in enumerate(graphs):
+        subgraphs.append(Subgraph(graph))
+    return subgraphs
+
+def add_input_and_output_nodes(g):
+
+    input_idx = 0
+    const_idx = 0
+
+    for n, d in g.copy().nodes.data(True):
+        num_inputs = config.op_inputs[config.op_types[d["op"]]]
+        bitwidth = config.op_bitwidth[config.op_types[d["op"]]]
+
+        pred = set()
+        for s in g.pred[n]:
+            pred.add(g.edges[(s, n, 0)]['port'])
+
+        for i in range(num_inputs):
+            if str(i) not in pred:
+                if bitwidth == 1:
+                    g.add_node("input" + str(input_idx), op="bit_input", op_config=["bit_input"])
+                    g.add_edge("input" + str(input_idx), n, port=str(i))
+                else:
+                    g.add_node("input" + str(input_idx), op="input", op_config=["input"])
+                    g.add_edge("input" + str(input_idx), n, port=str(i))               
+
+                input_idx += 1
+
+        if num_inputs == 0: #const input
+            if bitwidth == 1:
+                g.add_node(
+                    "bit_const" + str(const_idx),
+                    op="bit_const_input",
+                    alu_ops=["bit_const_input"])
+                g.add_edge("bit_const" + str(const_idx), n, port='0')
+            else:
+                g.add_node(
+                    "const" + str(const_idx),
+                    op="const_input",
+                    alu_ops=["const_input"])
+                g.add_edge("const" + str(const_idx), n, port='0')
+            const_idx += 1
+
+    for n, d in g.copy().nodes.data(True):
+        if len(list(g.successors(n))) == 0:
+            if config.op_types[d["op"]] in config.bit_output_ops:
+                g.add_node("bit_out", op="bit_output", alu_ops=["bit_output"])
+                g.add_edge(n, "bit_out", port='0')
+            else:
+                g.add_node("out", op="output", alu_ops=["output"])
+                g.add_edge(n, "out", port='0')
 
 
 
-def add_primitive_ops(graphs):
-    weights = {"const":1, "bitconst":1, "and":1, "or":1, "xor":1, "shl":1, "lshr":1, "ashr":1, "add":1, "sub":1,
-    "sle":1, "sge":1, "ule":1, "uge":1, "eq":1, "slt":1, "sgt":1, "ult":1, "ugt":1, 
-    "smax":2, "smin":2, "umax":2, "umin":2, "absd":4, "abs":2, "mul":1.5, "mux":1,
-    "bitand":1, "bitor":1, "bitxor":1, "bitnot":1, "bitmux":1, "floatadd":1, "floatsub":1, "floatmul":1, "bit_alu":1,
-    "gte":1, "lte":1, "sub":1, "shr":1}
+def add_primitive_ops(subgraphs):
 
     with open(".temp/used_ops.txt", "rb") as file:
         used_ops = pickle.load(file)
@@ -85,7 +129,6 @@ def add_primitive_ops(graphs):
     primitive_graphs = {}
 
     for ind, op in enumerate(used_ops):
-        # if op != "const" and op != "bitconst":
         op_graph = nx.MultiDiGraph()
         
         if op == "and" or  op == "or" or op == "xor":
@@ -110,12 +153,12 @@ def add_primitive_ops(graphs):
             op_graph.add_node('0', op=config.op_types_flipped[op], alu_ops=[config.op_types_flipped[op]])
         
       
-        graph_weights[ind] = weights[op]
+        graph_weights[ind] = config.weights[op]
         primitive_graphs[ind] = op_graph
 
     sorted_graphs = sorted(graph_weights.items(), key=lambda x: x[1], reverse=True)
     for i in sorted_graphs:
-        graphs.append(primitive_graphs[i[0]])
+        subgraphs.append(Subgraph(primitive_graphs[i[0]]))
 
 
 

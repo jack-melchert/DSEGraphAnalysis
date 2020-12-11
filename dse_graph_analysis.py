@@ -55,7 +55,7 @@ def main():
 
             # Takes in grami_in.txt produces orig_graph.pdf
             print("Graphing original graph")
-            #graph_output(dot_files[file_ind], file_stripped)
+            graph_output(dot_files[file_ind], file_stripped)
 
             # Takes in grami_in.txt and subgraph support, produces Output.txt
             grami_subgraph_mining(dot_files[file_ind], file_ind_pairs[file])
