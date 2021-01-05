@@ -14,12 +14,10 @@ from peak_gen.arch import read_arch, graph_arch
 from peak import family
 
 import subgraph_merging.config as config
-from .subgraph import Subgraph
+from .subgraph import Subgraph, DSESubgraph
 
 
 def read_subgraphs(file_ind_pairs):
-
-
     graphs = []
     graphs_sizes = {}
 
@@ -65,7 +63,7 @@ def read_subgraphs(file_ind_pairs):
 
     subgraphs = []
     for ind, graph in enumerate(graphs):
-        subgraphs.append(Subgraph(graph))
+        subgraphs.append(DSESubgraph(graph))
     return subgraphs
 
 def add_input_and_output_nodes(g):
@@ -97,26 +95,35 @@ def add_input_and_output_nodes(g):
                 g.add_node(
                     "bit_const" + str(const_idx),
                     op="bit_const_input",
-                    alu_ops=["bit_const_input"])
+                    op_config=["bit_const_input"])
                 g.add_edge("bit_const" + str(const_idx), n, port='0')
             else:
                 g.add_node(
                     "const" + str(const_idx),
                     op="const_input",
-                    alu_ops=["const_input"])
+                    op_config=["const_input"])
                 g.add_edge("const" + str(const_idx), n, port='0')
             const_idx += 1
 
     for n, d in g.copy().nodes.data(True):
         if len(list(g.successors(n))) == 0:
             if config.op_types[d["op"]] in config.bit_output_ops:
-                g.add_node("bit_out", op="bit_output", alu_ops=["bit_output"])
+                g.add_node("bit_out", op="bit_output", op_config=["bit_output"])
                 g.add_edge(n, "bit_out", port='0')
             else:
-                g.add_node("out", op="output", alu_ops=["output"])
+                g.add_node("out", op="output", op_config=["output"])
                 g.add_edge(n, "out", port='0')
 
+def is_node_input_or_output(node):
 
+    input_output_names = {"input", "bit_input", "output", "bit_output", "const_input", "bit_const_input"}
+
+    if 'op' in node:
+        return d['op'] in input_output_names
+    elif 'op0' in node and 'op1' in node:
+        return d['op0'] in input_output_names or d['op1'] in input_output_names
+    else:
+        raise ValueError
 
 def add_primitive_ops(subgraphs):
 
@@ -133,24 +140,24 @@ def add_primitive_ops(subgraphs):
         
         if op == "and" or  op == "or" or op == "xor":
             op_t = 'bit_alu'
-            op_graph.add_node('0', op=config.op_types_flipped[op_t], alu_ops=[config.op_types_flipped[op]])
+            op_graph.add_node('0', op=config.op_types_flipped[op_t], op_config=[config.op_types_flipped[op]])
         elif op == "smax" or op == "umax" or op == "sge" or op == "uge":
             op_t = "gte"
-            op_graph.add_node('0', op=config.op_types_flipped[op_t], alu_ops=[config.op_types_flipped[op]])
+            op_graph.add_node('0', op=config.op_types_flipped[op_t], op_config=[config.op_types_flipped[op]])
         elif op == "smin" or op == "umin" or op == "sle" or op == "ule":
             op_t = "lte"
-            op_graph.add_node('0', op=config.op_types_flipped[op_t], alu_ops=[config.op_types_flipped[op]])
+            op_graph.add_node('0', op=config.op_types_flipped[op_t], op_config=[config.op_types_flipped[op]])
         elif op == "slt" or op == "sgt" or op == "ult" or op == "ugt" or op == "eq":
             op_t = "sub"
-            op_graph.add_node('0', op=config.op_types_flipped[op_t], alu_ops=[config.op_types_flipped[op]])
+            op_graph.add_node('0', op=config.op_types_flipped[op_t], op_config=[config.op_types_flipped[op]])
         elif op == "ashr" or op == "lshr":
             op_t = "shr"
-            op_graph.add_node('0', op=config.op_types_flipped[op_t], alu_ops=[config.op_types_flipped[op]])
+            op_graph.add_node('0', op=config.op_types_flipped[op_t], op_config=[config.op_types_flipped[op]])
         elif op in config.lut_supported_ops:
             op_t = "lut"
-            op_graph.add_node('0', op=config.op_types_flipped[op_t], alu_ops=[config.op_types_flipped[op]])
+            op_graph.add_node('0', op=config.op_types_flipped[op_t], op_config=[config.op_types_flipped[op]])
         else:
-            op_graph.add_node('0', op=config.op_types_flipped[op], alu_ops=[config.op_types_flipped[op]])
+            op_graph.add_node('0', op=config.op_types_flipped[op], op_config=[config.op_types_flipped[op]])
         
       
         graph_weights[ind] = config.weights[op]
@@ -231,7 +238,7 @@ def merged_subgraph_to_arch(subgraph):
                 modules[n]["id"] = n
 
                 op = config.op_types[d["op"]]
-                alu_ops = [config.op_types[x] for x in d["alu_ops"]]
+                op_config = [config.op_types[x] for x in d["op_config"]]
 
                 # if op == "lut":
                 #     modules[n]["type"] = 'lut'
@@ -247,7 +254,7 @@ def merged_subgraph_to_arch(subgraph):
                 #     modules[n]["type"] = "shr"
                 # else:
                 modules[n]["type"] = op
-                    # for alu_op in alu_ops:
+                    # for alu_op in op_config:
                     #     if alu_op not in alu_supported_ops and alu_op not in config.lut_supported_ops:
                     #         print("Warning: possible unsupported ALU operation found in subgraph:", n)
                     #     if alu_op in fp_alu_supported_ops:
@@ -286,8 +293,8 @@ def merged_subgraph_to_arch(subgraph):
         
         # Add to output mux
         if subgraph.nodes.data(True)[v]["op"] == "output":
-            # alu_ops = [config.op_types[x] for x in subgraph.nodes.data(True)[u]["alu_ops"]]
-            # for alu_op in alu_ops:
+            # op_config = [config.op_types[x] for x in subgraph.nodes.data(True)[u]["op_config"]]
+            # for alu_op in op_config:
             #     if alu_op in config.bit_output_ops:
             #         bit_outputs.add(u)
 
@@ -373,13 +380,13 @@ def subgraph_to_peak(subgraph, sub_idx, b):
 
 
     for n, d in subgraph.nodes.data(True):
-        if config.op_types[subgraph.nodes[n]['alu_ops'][0]] != "input" \
-            and config.op_types[subgraph.nodes[n]['alu_ops'][0]] != "bit_input" \
-            and config.op_types[subgraph.nodes[n]['alu_ops'][0]] != "const_input"\
-            and config.op_types[subgraph.nodes[n]['alu_ops'][0]] != "bit_const_input":
+        if config.op_types[subgraph.nodes[n]['op_config'][0]] != "input" \
+            and config.op_types[subgraph.nodes[n]['op_config'][0]] != "bit_input" \
+            and config.op_types[subgraph.nodes[n]['op_config'][0]] != "const_input"\
+            and config.op_types[subgraph.nodes[n]['op_config'][0]] != "bit_const_input":
 
             pred = {}
-            pred['alu_op'] = config.op_types[subgraph.nodes[n]['alu_ops'][0]]
+            pred['alu_op'] = config.op_types[subgraph.nodes[n]['op_config'][0]]
             for s in subgraph.pred[n]:
                 pred[subgraph.edges[(s, n, 0)]['port']] = b[s]
             node_dict[b[n]] = pred
@@ -489,13 +496,13 @@ def mapping_function_fc(family: AbstractFamily):
     return ret_val
 
 
-def check_no_cycles(pair, g1, g1_map_r, g2, g2_map_r):
+def check_no_cycles(pair, g1, g2):
 
-    a0 = g1_map_r[pair[0][1]['start']]
-    a1 = g1_map_r[pair[1][1]['start']]
+    a0 = pair[0][1]['start']
+    a1 = pair[1][1]['start']
 
-    b0 = g2_map_r[pair[0][1]['end']]
-    b1 = g2_map_r[pair[1][1]['end']]
+    b0 = pair[0][1]['end']
+    b1 = pair[1][1]['end']
 
 
     apath = nx.algorithms.shortest_paths.generic.has_path(g1, a0, a1)
@@ -504,9 +511,6 @@ def check_no_cycles(pair, g1, g1_map_r, g2, g2_map_r):
     bpath_r = nx.algorithms.shortest_paths.generic.has_path(g2, b1, b0)
 
     cycle_exists = (apath and bpath_r) or (apath_r and bpath)
-
-    # if cycle_exists:
-    #     breakpoint()
 
     return not cycle_exists
     

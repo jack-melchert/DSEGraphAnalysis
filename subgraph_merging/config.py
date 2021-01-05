@@ -33,6 +33,15 @@ weights = {"const":1, "bitconst":1, "and":1, "or":1, "xor":1, "shl":1, "lshr":1,
     "bitand":1, "bitor":1, "bitxor":1, "bitnot":1, "bitmux":1, "floatadd":1, "floatsub":1, "floatmul":1, "bit_alu":1,
     "gte":1, "lte":1, "sub":1, "shr":1}
 
+
+# TODO: Get actual area costs for these
+hardware_costs = {"const":12, "bitconst":1000, "and":1000, "or":1000, "xor":1000, "shl":1000, "lshr":1000, "ashr":1000, "add":1000, "sub":1000,
+    "sle":1000, "sge":1000, "ule":1000, "uge":1000, "eq":1000, "slt":1000, "sgt":1000, "ult":1000, "ugt":1000, 
+    "smax":1000, "smin":1000, "umax":1000, "umin":1000, "absd":1000, "abs":1000, "mul":2030, "mux":30,
+    "bitand":13, "bitor":13, "bitxor":13, "bitnot":13, "bitmux":13, "floatadd":1000, "floatsub":1000, "floatmul":1000, "bit_alu":1000,
+    "gte":1000, "lte":1000, "sub":1000, "shr":1000}
+
+
 op_inputs = {"const":0, "bitconst":0, "and":2, "or":2, "xor":2, "shl":2, "lshr":2, "ashr":2, "add":2, "sub":2,
     "sle":2, "sge":2, "ule":2, "uge":2, "eq":2, "slt":2, "sgt":2, "ult":2, "ugt":2, 
     "smax":2, "smin":2, "umax":2, "umin":2, "absd":2, "abs":1, "mul":2, "mux":3,

@@ -567,7 +567,7 @@ def formulate_rewrite_rules(rrules, merged_arch):
 
 def test_rewrite_rules(rrules):
     arch = read_arch("./outputs/PE.json")
-    PE_fc = wrapped_peak_class(arch)
+    PE_fc = wrapped_peak_class(arch, debug=True)
     arch_mapper = ArchMapper(PE_fc)
     
 
