@@ -3,8 +3,10 @@ import typing as tp
 from itertools import count, combinations
 import pulp
 
+from .utils import *
 import subgraph_merging.config as config
 from .subgraph import Subgraph, DSESubgraph
+from .plot_utils import *
 
 class Merger():
     def __init__(self, subgraphs: tp.List):
@@ -27,7 +29,7 @@ class Merger():
                 node0=u,
                 node1=v,
                 op0=g0.nodes[u]['op'],
-                op1=g0.nodes[u]['op'],
+                op1=g0.nodes[v]['op'],
                 port=p,
                 bipartite=0)
 
@@ -36,7 +38,7 @@ class Merger():
                 n1,
                 type='node',
                 op=g1.nodes[n1]['op'],
-                bipartite=0)
+                bipartite=1)
 
         for (u, v, p) in g1.edges.data('port'):
             gb.add_node(
@@ -45,9 +47,9 @@ class Merger():
                 node0=u,
                 node1=v,
                 op0=g1.nodes[u]['op'],
-                op1=g1.nodes[u]['op'],
+                op1=g1.nodes[v]['op'],
                 port=p,
-                bipartite=0)
+                bipartite=1)
 
 
         left_nodes = [(n, d) for n, d in gb.nodes(data=True)
@@ -65,12 +67,12 @@ class Merger():
                         if d0['port'] == d1['port']:
                             gb.add_edge(n0, n1)
                         else:
-                            if config.op_types[d1['op1'][0]] in config.comm_ops:
+                            if config.op_types[d1['op1']] in config.comm_ops:
                                 gb.add_edge(n0, n1)
 
         return gb
 
-    def construct_compatibility_graph(self, gb: nx.MultiDiGraph):
+    def construct_compatibility_graph(self, gb: nx.MultiDiGraph, g0: nx.MultiDiGraph, g1: nx.MultiDiGraph):
         weights = {}
 
         for k, v in config.op_types_flipped.items():
@@ -93,16 +95,16 @@ class Merger():
 
         for pair in combinations(gc.nodes.data(True), 2):
             
-            if ", " in pair[0][1]['start'] and ", " in pair[1][1]['start']:
-                start_0_0 = pair[0][1]['start'].split(", ")[0]
-                start_0_1 = pair[0][1]['start'].split(", ")[1]
-                start_1_0 = pair[1][1]['start'].split(", ")[0]
-                start_1_1 = pair[1][1]['start'].split(", ")[1]
+            if "/" in pair[0][1]['start'] and "/" in pair[1][1]['start']:
+                start_0_0 = pair[0][1]['start'].split("/")[0]
+                start_0_1 = pair[0][1]['start'].split("/")[1]
+                start_1_0 = pair[1][1]['start'].split("/")[0]
+                start_1_1 = pair[1][1]['start'].split("/")[1]
 
-                end_0_0 = pair[0][1]['end'].split(", ")[0]
-                end_0_1 = pair[0][1]['end'].split(", ")[1]
-                end_1_0 = pair[1][1]['end'].split(", ")[0]
-                end_1_1 = pair[1][1]['end'].split(", ")[1]
+                end_0_0 = pair[0][1]['end'].split("/")[0]
+                end_0_1 = pair[0][1]['end'].split("/")[1]
+                end_1_0 = pair[1][1]['end'].split("/")[0]
+                end_1_1 = pair[1][1]['end'].split("/")[1]
 
                 start_0_1_port = pair[0][1]['start_port']
                 start_1_1_port = pair[1][1]['start_port']
@@ -132,13 +134,13 @@ class Merger():
                         or end_0_1 == end_1_0 or end_0_1 == end_1_1):
                     gc.add_edge(pair[0][0], pair[1][0])
 
-            elif ", " in pair[0][1]['start']:
-                start_0_0 = pair[0][1]['start'].split(", ")[0]
-                start_0_1 = pair[0][1]['start'].split(", ")[1]
+            elif "/" in pair[0][1]['start']:
+                start_0_0 = pair[0][1]['start'].split("/")[0]
+                start_0_1 = pair[0][1]['start'].split("/")[1]
                 start_1 = pair[1][1]['start']
 
-                end_0_0 = pair[0][1]['end'].split(", ")[0]
-                end_0_1 = pair[0][1]['end'].split(", ")[1]
+                end_0_0 = pair[0][1]['end'].split("/")[0]
+                end_0_1 = pair[0][1]['end'].split("/")[1]
                 end_1 = pair[1][1]['end']
 
                 if start_0_0 == start_1:
@@ -150,14 +152,14 @@ class Merger():
                 elif not (end_0_0 == end_1 or end_0_1 == end_1):
                     gc.add_edge(pair[0][0], pair[1][0])
 
-            elif ", " in pair[1][1]['start']:
+            elif "/" in pair[1][1]['start']:
                 start_0 = pair[0][1]['start']
-                start_1_0 = pair[1][1]['start'].split(", ")[0]
-                start_1_1 = pair[1][1]['start'].split(", ")[1]
+                start_1_0 = pair[1][1]['start'].split("/")[0]
+                start_1_1 = pair[1][1]['start'].split("/")[1]
 
                 end_0 = pair[0][1]['end']
-                end_1_0 = pair[1][1]['end'].split(", ")[0]
-                end_1_1 = pair[1][1]['end'].split(", ")[1]
+                end_1_0 = pair[1][1]['end'].split("/")[0]
+                end_1_1 = pair[1][1]['end'].split("/")[1]
 
                 if start_0 == start_1_0:
                     if end_0 == end_1_0:
@@ -170,17 +172,16 @@ class Merger():
 
             elif (pair[0][1]['start'] == pair[1][1]['start']):
                 if (pair[0][1]['end'] == pair[1][1]['end']):
-                    if check_no_cycles(pair, g1, g2):
+                    if check_no_cycles(pair, g0, g1):
                         gc.add_edge(pair[0][0], pair[1][0])
             elif not (pair[0][1]['end'] == pair[1][1]['end']):
-                if check_no_cycles(pair, g1, g2):
+                if check_no_cycles(pair, g0, g1):
                     gc.add_edge(pair[0][0], pair[1][0])
 
         return gc
 
 
     def find_maximum_weight_clique(self, gc: nx.MultiDiGraph):
-        breakpoint()
         V = gc.nodes
         V = [str(v) for v in V]
 
@@ -230,97 +231,32 @@ class Merger():
         return C
 
     def reconstruct_merged_graph(self, c: nx.MultiDiGraph, g0: nx.MultiDiGraph, g1: nx.MultiDiGraph):
-        breakpoint()
         g = g0.copy()
-        # b = {}
-        # for (i, j) in c:
-        #     if len(i.split(", ")) > 1:
-        #         b[g2_map[j.split(", ")[0]] + ", " +
-        #         g2_map[j.split(", ")[1]]] = g1_map[i.split(
-        #             ", ")[0]] + ", " + g1_map[i.split(", ")[1]]
-        #     else:
-        #         b[g2_map[j]] = g1_map[i]
 
+        for k, v in c:
+            if "/" in k:
+                g0u = k.split("/")[0]
+                g0v = k.split("/")[1]
+                g1u = v.split("/")[0]
+                g1v = v.split("/")[1]
+                if g0.edges[(g0u, g0v, 0)]['port'] != g1.edges[(g1u, g1v, 0)]['port'] and (g0u, g0v, 1) not in g0.edges:
+                    if config.op_types[g1.nodes.data(True)[g1v]['op_config'][0]] in config.comm_ops:
+                        swap_ports(g1, g1v)
+                    else:
+                        print("Oops, something went wrong")
+                        exit()
 
-        # for k,v in b.items():
-        #     if "," in k:
-        #         g2u = k.split(", ")[0]
-        #         g2v = k.split(", ")[1]
-        #         g1u = v.split(", ")[0]
-        #         g1v = v.split(", ")[1]
-        #         if g1.edges[(g1u, g1v, 0)]['port'] != g2.edges[(g2u, g2v, 0)]['port'] and (g1u, g1v, 1) not in g1.edges:
-        #             if config.op_types[g2.nodes.data(True)[g2v]['alu_ops'][0]] in config.comm_ops:
-        #                 swap_ports(g2, g2v)
-        #             else:
-        #                 print("Oops, something went wrong")
-        #                 exit()
+        b = {j:i for i,j in c}
 
-        # g = g1.copy()
+        for n, d in g1.nodes.data(True):
+            if n not in b:
+                g.add_node(str(config.node_counter), op=d['op'], op_config=d['op_config'])
+                b[n] = str(config.node_counter)
+                config.node_counter += 1
 
-        # in_idx = 0
-        # bit_in_idx = 0
-        # const_idx = 0
-        # bit_const_idx = 0
-        # output_idx = 0
-        # bit_output_idx = 0
-
-        # for n in g1.nodes:
-        #     if "in" in n and "bit" not in n:
-        #         in_idx += 1
-        #     if "in" in n and "bit" in n:
-        #         bit_in_idx += 1
-        #     if "const" in n:
-        #         const_idx += 1
-        #     if "bit_const" in n:
-        #         bit_const_idx += 1
-        #     if "output_idx" in n:
-        #         output_idx += 1
-        #     if "bit_output_idx" in n:
-        #         bit_output_idx += 1
-
-
-        # idx = len(g1.nodes)
-        # for n, d in g2.nodes.data(True):
-        #     if n not in b:
-        #         if d["op"] == "input":
-        #             g.add_node("in" + str(in_idx), op=d['op'], alu_ops=d['alu_ops'])
-        #             b[n] = "in" + str(in_idx)
-        #             in_idx += 1
-        #         elif d["op"] == "bit_input":
-        #             g.add_node("bit_in" + str(bit_in_idx), op=d['op'], alu_ops=d['alu_ops'])
-        #             b[n] = "bit_in" + str(bit_in_idx)
-        #             bit_in_idx += 1
-        #         elif d["op"] == "const_input":
-        #             g.add_node(
-        #                 "const" + str(const_idx), op=d['op'], alu_ops=d['alu_ops'])
-        #             b[n] = "const" + str(const_idx)
-        #             const_idx += 1
-        #         elif d["op"] == "bit_const_input":
-        #             g.add_node(
-        #                 "bit_const" + str(bit_const_idx), op=d['op'], alu_ops=d['alu_ops'])
-        #             b[n] = "bit_const" + str(bit_const_idx)
-        #             bit_const_idx += 1
-        #         elif d["op"] == "output":
-        #             g.add_node(
-        #                 "out" + str(output_idx), op=d['op'], alu_ops=d['alu_ops'])
-        #             b[n] = "out" + str(output_idx)
-        #             output_idx += 1
-        #         elif d["op"] == "bit_output":
-        #             g.add_node(
-        #                 "bit_out" + str(bit_output_idx), op=d['op'], alu_ops=d['alu_ops'])
-        #             b[n] = "bit_out" + str(bit_output_idx)
-        #             bit_output_idx += 1
-        #         else:
-        #             g.add_node(str(idx), op=d['op'], alu_ops=d['alu_ops'])
-        #             b[n] = str(idx)
-        #             idx += 1
-        #     else:
-        #         if d["op"] == "alu":
-        #             g1.nodes.data(True)[b[n]]['alu_ops'] += d['alu_ops']
-
-        # for u, v, d in g2.edges.data(True):
-        #     if not str(u) + ", " + str(v) in b and not g.has_edge(b[u],b[v]):
-        #         g.add_edge(b[u], b[v], port=d['port'])
+        for u, v, d in g1.edges.data(True):
+            if not str(u) + "/" + str(v) in b and not g.has_edge(b[u],b[v]):
+                g.add_edge(b[u], b[v], port=d['port'])
 
         return DSESubgraph(g)
 
@@ -329,7 +265,8 @@ class Merger():
 
     def merge_subgraphs(self, g0: nx.MultiDiGraph, g1: nx.MultiDiGraph):
         gb = self.construct_compatibility_bipartite_graph(g0, g1)
-        gc = self.construct_compatibility_graph(gb)
+        gc = self.construct_compatibility_graph(gb, g0, g1)
+        # plot_compatibility_graph(g0, g1, gb, gc)
         c = self.find_maximum_weight_clique(gc)
         return self.reconstruct_merged_graph(c, g0, g1)
 
@@ -337,7 +274,6 @@ class Merger():
         merged_graph = self.subgraphs[0]
         for subgraph in self.subgraphs[1:]:
             merged_graph = self.merge_subgraphs(merged_graph.subgraph, subgraph.subgraph)
-            print("merge")
 
         self.set_merged_graph(merged_graph)
 
@@ -347,7 +283,15 @@ class DSEMerger(Merger):
         super().__init__(subgraphs)
 
     def merged_graph_to_arch(self):
-        pass
+        self.merged_graph.generate_peak_arch()
 
     def write_merged_graph_arch(self):
-        pass
+        self.merged_graph.write_peak_arch("outputs/PE.json")
+
+    def generate_rewrite_rules(self):
+        for idx, subgraph in enumerate(self.subgraphs):
+            subgraph.generate_rewrite_rule(idx)
+
+    def write_rewrite_rules(self):
+        for idx, subgraph in enumerate(self.subgraphs):
+            subgraph.write_rewrite_rule("outputs/rewrite_rules/rewrite_rule_" + str(idx) + ".json")

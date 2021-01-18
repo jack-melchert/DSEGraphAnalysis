@@ -3,9 +3,10 @@ import networkx as nx
 import matplotlib.pyplot as plt
 import subgraph_merging.config as config
 
-def plot_compatibility_graph(g1, g1_map, g2, g2_map, gb, gc):
-    plt.subplot(1, 4, 1)
-    plt.margins(0.2)
+def plot_compatibility_graph(g1, g2, gb, gc):
+    fig, axes = plt.subplots(1, 4)
+    ax = axes.flatten()
+    # axes.margins(0.2)
     g = g1
     groups1 = set(nx.get_node_attributes(g1, 'op').values())
     groups2 = set(nx.get_node_attributes(g2, 'op').values())
@@ -15,8 +16,11 @@ def plot_compatibility_graph(g1, g1_map, g2, g2_map, gb, gc):
     colors = [plt.cm.Pastel1(mapping[g.nodes[n]['op']]) for n in nodes]
 
     labels = {}
+    edge_labels = {}
     for n in nodes:
-        labels[n] = g1_map[n] + "\n" + config.op_types[g.nodes[n]['op']]
+        labels[n] = n + "\n" + config.op_types[g.nodes[n]['op']]
+    for u, v, d in g.edges(data = True):
+        edge_labels[(u,v)] = d["port"]
     pos = nx.nx_agraph.graphviz_layout(g, prog='dot')
     ec = nx.draw_networkx_edges(
         g,
@@ -25,7 +29,8 @@ def plot_compatibility_graph(g1, g1_map, g2, g2_map, gb, gc):
         width=3,
         node_size=1500,
         arrows=True,
-        arrowsize=15)
+        arrowsize=15,
+        ax=axes[0])
     nc = nx.draw_networkx_nodes(
         g,
         pos,
@@ -33,18 +38,21 @@ def plot_compatibility_graph(g1, g1_map, g2, g2_map, gb, gc):
         node_color=colors,
         # with_labels=False,
         node_size=1500,
-        alpha=1)
-    nx.draw_networkx_labels(g, pos, labels)
+        alpha=1,
+        ax=axes[0])
+    nx.draw_networkx_labels(g, pos, labels,ax=axes[0])
+    nx.draw_networkx_edge_labels(g,pos,edge_labels=edge_labels,ax=axes[0])
 
-    plt.subplot(1, 4, 2)
-    plt.margins(0.2)
     g = g2
     nodes = g.nodes()
     colors = [plt.cm.Pastel1(mapping[g.nodes[n]['op']]) for n in nodes]
 
     labels = {}
+    edge_labels = {}
     for n in nodes:
-        labels[n] = g2_map[n] + "\n" + config.op_types[g.nodes[n]['op']]
+        labels[n] = n + "\n" + config.op_types[g.nodes[n]['op']]
+    for u, v, d in g.edges(data = True):
+        edge_labels[(u,v)] = d["port"]
     pos = nx.nx_agraph.graphviz_layout(g, prog='dot')
     ec = nx.draw_networkx_edges(
         g,
@@ -53,7 +61,8 @@ def plot_compatibility_graph(g1, g1_map, g2, g2_map, gb, gc):
         width=3,
         node_size=1500,
         arrows=True,
-        arrowsize=15)
+        arrowsize=15,
+        ax=axes[1])
     nc = nx.draw_networkx_nodes(
         g,
         pos,
@@ -61,13 +70,14 @@ def plot_compatibility_graph(g1, g1_map, g2, g2_map, gb, gc):
         node_color=colors,
         # with_labels=False,
         node_size=1500,
-        alpha=1)
-    nx.draw_networkx_labels(g, pos, labels)
+        alpha=1,
+        ax=axes[1])
+    nx.draw_networkx_labels(g, pos, labels, ax=axes[1])
+    nx.draw_networkx_edge_labels(g,pos,edge_labels=edge_labels,ax=axes[1])
 
     plot_gb = gb.copy()
 
 
-    plt.subplot(1, 4, 3)
 
     left = [n for n, d in plot_gb.nodes(data=True) if d['bipartite'] == 0]
     right = [n for n, d in plot_gb.nodes(data=True) if d['bipartite'] == 1]
@@ -82,21 +92,17 @@ def plot_compatibility_graph(g1, g1_map, g2, g2_map, gb, gc):
         node_color=plt.cm.Pastel1(2),
         node_size=1500,
         pos=pos,
-        width=3)
-    plt.margins(0.2)
+        width=3,ax=axes[2])
+    axes[2].margins(0.2)
 
     plot_gc = gc.copy()
 
-    # for n, d in plot_gc.copy().nodes.data(True):
-    #     if d["in_or_out"]:
-    #         plot_gc.remove_node(n)
 
-    plt.subplot(1, 4, 4)
     starts = nx.get_node_attributes(plot_gc, 'start')
     ends = nx.get_node_attributes(plot_gc, 'end')
     weights = nx.get_node_attributes(plot_gc, 'weight')
     labels = {
-        n: d + "/" + ends[n] + "\n" + str(weights[n])
+        n: d + " " + ends[n] + "\n" + str(weights[n])
         for n, d in starts.items()
     }
     nx.draw_networkx(
@@ -104,7 +110,7 @@ def plot_compatibility_graph(g1, g1_map, g2, g2_map, gb, gc):
         node_color=plt.cm.Pastel1(2),
         node_size=1500,
         width=3,
-        labels=labels)
+        labels=labels,ax=axes[3])
     plt.margins(0.2)
     plt.show()
 

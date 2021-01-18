@@ -25,6 +25,10 @@ alu_supported_ops = {"and", "or", "xor", "shl", "lshr", "ashr", "add", "sub",
 
 fp_alu_supported_ops = {"floatadd", "floatsub", "floatmul"}
 
+input_names = {"input", "bit_input", "const_input", "bit_const_input"}
+output_names = {"output", "bit_output"}
+
+
 non_coreir_ops = {"alu", "bit_alu", "lut", "input", "bit_input", "const_input", "bit_const_input", "output", "bit_output", "gte", "lte", "sub", "shr"}
 
 weights = {"const":1, "bitconst":1, "and":1, "or":1, "xor":1, "shl":1, "lshr":1, "ashr":1, "add":1, "sub":1,
@@ -57,3 +61,4 @@ op_bitwidth = {"const": 16, "bitconst": 1, "and": 16, "or": 16, "xor": 16, "shl"
 op_types = []
 op_types_flipped = []
 
+node_counter = 0

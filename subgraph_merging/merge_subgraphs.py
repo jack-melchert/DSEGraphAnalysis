@@ -28,9 +28,18 @@ def merge_subgraphs(file_ind_pairs):
 
     utils.add_primitive_ops(subgraphs)
 
-    for graph in subgraphs:
-        utils.add_input_and_output_nodes(graph.subgraph)
+    for sub_idx, graph in enumerate(subgraphs):
+        graph.add_input_and_output_nodes()
+        graph.generate_peak_eq()
+        graph.write_peak_eq("outputs/peak_eqs/peak_eq_" + str(sub_idx) + ".py")
 
     merger = DSEMerger(subgraphs)
 
     merger.merge_all_subgraphs()
+
+    merger.merged_graph_to_arch()
+    merger.write_merged_graph_arch()
+    # merger.merged_graph.plot()
+
+    merger.generate_rewrite_rules()
+    merger.write_rewrite_rules()

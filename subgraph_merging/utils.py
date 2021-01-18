@@ -20,6 +20,7 @@ from .subgraph import Subgraph, DSESubgraph
 def read_subgraphs(file_ind_pairs):
     graphs = []
     graphs_sizes = {}
+    name_mappings = []
 
     for subgraph_file, inds in file_ind_pairs.items():
         with open(subgraph_file) as file:
@@ -27,12 +28,13 @@ def read_subgraphs(file_ind_pairs):
 
         graph_ind = -1
         graphs_per_file = []
-
         for line in lines:
             if ':' in line:
                 graph_ind += 1
                 graphs_per_file.append(nx.MultiDiGraph())
                 graphs_sizes[graph_ind] = 0
+                name_mapping = {}
+                name_mappings.append(name_mapping)
             elif 'v' in line:
                 op_in = config.op_types[line.split()[2]]
                 if op_in != "none":
@@ -53,6 +55,9 @@ def read_subgraphs(file_ind_pairs):
                     graphs_per_file[graph_ind].add_node(
                         line.split()[1], op=op, op_config=[line.split()[2]])
                     graphs_sizes[graph_ind] += config.weights[op_in]
+                    name_mappings[graph_ind][line.split()[1]] = str(config.node_counter)
+                    config.node_counter += 1
+ 
             elif 'e' in line:
                 graphs_per_file[graph_ind].add_edge(
                     line.split()[1], line.split()[2], port=line.split()[3])
@@ -63,65 +68,26 @@ def read_subgraphs(file_ind_pairs):
 
     subgraphs = []
     for ind, graph in enumerate(graphs):
-        subgraphs.append(DSESubgraph(graph))
+        subgraphs.append(DSESubgraph(nx.relabel_nodes(graph, name_mappings[ind])))
     return subgraphs
-
-def add_input_and_output_nodes(g):
-
-    input_idx = 0
-    const_idx = 0
-
-    for n, d in g.copy().nodes.data(True):
-        num_inputs = config.op_inputs[config.op_types[d["op"]]]
-        bitwidth = config.op_bitwidth[config.op_types[d["op"]]]
-
-        pred = set()
-        for s in g.pred[n]:
-            pred.add(g.edges[(s, n, 0)]['port'])
-
-        for i in range(num_inputs):
-            if str(i) not in pred:
-                if bitwidth == 1:
-                    g.add_node("input" + str(input_idx), op="bit_input", op_config=["bit_input"])
-                    g.add_edge("input" + str(input_idx), n, port=str(i))
-                else:
-                    g.add_node("input" + str(input_idx), op="input", op_config=["input"])
-                    g.add_edge("input" + str(input_idx), n, port=str(i))               
-
-                input_idx += 1
-
-        if num_inputs == 0: #const input
-            if bitwidth == 1:
-                g.add_node(
-                    "bit_const" + str(const_idx),
-                    op="bit_const_input",
-                    op_config=["bit_const_input"])
-                g.add_edge("bit_const" + str(const_idx), n, port='0')
-            else:
-                g.add_node(
-                    "const" + str(const_idx),
-                    op="const_input",
-                    op_config=["const_input"])
-                g.add_edge("const" + str(const_idx), n, port='0')
-            const_idx += 1
-
-    for n, d in g.copy().nodes.data(True):
-        if len(list(g.successors(n))) == 0:
-            if config.op_types[d["op"]] in config.bit_output_ops:
-                g.add_node("bit_out", op="bit_output", op_config=["bit_output"])
-                g.add_edge(n, "bit_out", port='0')
-            else:
-                g.add_node("out", op="output", op_config=["output"])
-                g.add_edge(n, "out", port='0')
 
 def is_node_input_or_output(node):
 
-    input_output_names = {"input", "bit_input", "output", "bit_output", "const_input", "bit_const_input"}
+    input_output_names = config.input_names.union(config.input_names)
 
     if 'op' in node:
-        return d['op'] in input_output_names
+        return node['op'] in input_output_names
     elif 'op0' in node and 'op1' in node:
-        return d['op0'] in input_output_names or d['op1'] in input_output_names
+        return node['op0'] in input_output_names or node['op1'] in input_output_names
+    else:
+        raise ValueError
+
+def is_node_input(node):
+
+    if 'op' in node:
+        return node['op'] in config.input_names
+    elif 'op0' in node and 'op1' in node:
+        return node['op0'] in config.input_names or node['op1'] in config.input_names
     else:
         raise ValueError
 
@@ -140,32 +106,32 @@ def add_primitive_ops(subgraphs):
         
         if op == "and" or  op == "or" or op == "xor":
             op_t = 'bit_alu'
-            op_graph.add_node('0', op=config.op_types_flipped[op_t], op_config=[config.op_types_flipped[op]])
+            op_graph.add_node(str(config.node_counter), op=config.op_types_flipped[op_t], op_config=[config.op_types_flipped[op]])
         elif op == "smax" or op == "umax" or op == "sge" or op == "uge":
             op_t = "gte"
-            op_graph.add_node('0', op=config.op_types_flipped[op_t], op_config=[config.op_types_flipped[op]])
+            op_graph.add_node(str(config.node_counter), op=config.op_types_flipped[op_t], op_config=[config.op_types_flipped[op]])
         elif op == "smin" or op == "umin" or op == "sle" or op == "ule":
             op_t = "lte"
-            op_graph.add_node('0', op=config.op_types_flipped[op_t], op_config=[config.op_types_flipped[op]])
+            op_graph.add_node(str(config.node_counter), op=config.op_types_flipped[op_t], op_config=[config.op_types_flipped[op]])
         elif op == "slt" or op == "sgt" or op == "ult" or op == "ugt" or op == "eq":
             op_t = "sub"
-            op_graph.add_node('0', op=config.op_types_flipped[op_t], op_config=[config.op_types_flipped[op]])
+            op_graph.add_node(str(config.node_counter), op=config.op_types_flipped[op_t], op_config=[config.op_types_flipped[op]])
         elif op == "ashr" or op == "lshr":
             op_t = "shr"
-            op_graph.add_node('0', op=config.op_types_flipped[op_t], op_config=[config.op_types_flipped[op]])
+            op_graph.add_node(str(config.node_counter), op=config.op_types_flipped[op_t], op_config=[config.op_types_flipped[op]])
         elif op in config.lut_supported_ops:
             op_t = "lut"
-            op_graph.add_node('0', op=config.op_types_flipped[op_t], op_config=[config.op_types_flipped[op]])
+            op_graph.add_node(str(config.node_counter), op=config.op_types_flipped[op_t], op_config=[config.op_types_flipped[op]])
         else:
-            op_graph.add_node('0', op=config.op_types_flipped[op], op_config=[config.op_types_flipped[op]])
-        
+            op_graph.add_node(str(config.node_counter), op=config.op_types_flipped[op], op_config=[config.op_types_flipped[op]])
+        config.node_counter += 1        
       
         graph_weights[ind] = config.weights[op]
         primitive_graphs[ind] = op_graph
 
     sorted_graphs = sorted(graph_weights.items(), key=lambda x: x[1], reverse=True)
     for i in sorted_graphs:
-        subgraphs.append(Subgraph(primitive_graphs[i[0]]))
+        subgraphs.append(DSESubgraph(primitive_graphs[i[0]]))
 
 
 
@@ -176,7 +142,7 @@ def clean_output_dirs():
     os.makedirs('outputs')
 
     
-def sort_modules(modules):
+def sort_modules(modules, subgraph):
     ids = []
     output_modules = []
     sort_count = 1000
@@ -193,14 +159,14 @@ def sort_modules(modules):
                 inorder = True
 
                 for in0_item in module["in0"]:
-                    inorder = inorder and ("in" in in0_item or in0_item in ids)
+                    inorder = inorder and (is_node_input(subgraph.nodes(data = True)[in0_item]) or in0_item in ids)
 
                 for in1_item in module["in1"]:
-                    inorder = inorder and ("in" in in1_item or in1_item in ids)
+                    inorder = inorder and (is_node_input(subgraph.nodes(data = True)[in1_item]) or in1_item in ids)
 
                 if module['type'] == 'mux' or module['type'] == 'bitmux':
                     for sel_item in module["in2"]:
-                        inorder = inorder and ("in" in sel_item or sel_item in ids)
+                        inorder = inorder and (is_node_input(subgraph.nodes(data = True)[sel_item]) or sel_item in ids)
 
                 if inorder:
                     ids.append(module["id"])
@@ -374,127 +340,15 @@ def construct_eq(in0, in1, op, absd_count, in2=""):
         "in_2", in2), absd_str.replace("in_0", in0).replace("in_1", in1), absd_count
 
 
-def subgraph_to_peak(subgraph, sub_idx, b):
-    absd_count = 0
-    node_dict = {}
 
+def swap_ports(subgraph, dest_node):
+    for s in subgraph.pred[dest_node]:
+        if subgraph.edges[(s, dest_node, 0)]['port'] == "0":
+            subgraph.edges[(s, dest_node, 0)]['port'] = "1"
+        else:
+            subgraph.edges[(s, dest_node, 0)]['port'] = "0"
 
-    for n, d in subgraph.nodes.data(True):
-        if config.op_types[subgraph.nodes[n]['op_config'][0]] != "input" \
-            and config.op_types[subgraph.nodes[n]['op_config'][0]] != "bit_input" \
-            and config.op_types[subgraph.nodes[n]['op_config'][0]] != "const_input"\
-            and config.op_types[subgraph.nodes[n]['op_config'][0]] != "bit_const_input":
-
-            pred = {}
-            pred['alu_op'] = config.op_types[subgraph.nodes[n]['op_config'][0]]
-            for s in subgraph.pred[n]:
-                pred[subgraph.edges[(s, n, 0)]['port']] = b[s]
-            node_dict[b[n]] = pred
-
-    ret_val = node_dict.copy()
-    args_str = ""
-    eq_dict = {}
-    inputs = set()
-    bit_inputs = set()
-    absd_str = ""
-    last_eq = ""
-    output_type = ""
-
-    while len(node_dict) > 0:
-        for node, data in node_dict.copy().items():
-            if data['alu_op'] == 'output' or data['alu_op'] == 'bit_output':
-                node_dict.pop(node)
-            elif data['alu_op'] == 'const':
-                eq_dict[node] = data['0']
-                node_dict.pop(node)
-                args_str += data['0'] + " : Const(Data), "
-            elif data['alu_op'] == 'bitconst':
-                eq_dict[node] = data['0']
-                node_dict.pop(node)
-                args_str += data['0'] + " : Const(Bit), "
-            else:
-                if ("in" in data['0'] or data['0'] in eq_dict) and ("in" in data['1'] or data['1'] in eq_dict):
-
-                    if '2' in data:
-                        if ("in" in data['2'] or data['2'] in eq_dict):
-                            eq_dict[node], absd_str_tmp, absd_count = construct_eq(
-                            str(eq_dict.get(data['0'], data['0'])),
-                            str(eq_dict.get(data['1'], data['1'])), data['alu_op'], absd_count,
-                            str(eq_dict.get(data['2'], data['2'])))
-                            last_eq = eq_dict[node]
-                            output_type = "Bit" if data['alu_op'] in config.bit_output_ops else "Data"
-                            node_dict.pop(node)
-                            absd_str += absd_str_tmp
-                    else:
-                        eq_dict[node], absd_str_tmp, absd_count = construct_eq(
-                            str(eq_dict.get(data['0'], data['0'])),
-                            str(eq_dict.get(data['1'], data['1'])), data['alu_op'], absd_count)
-
-                        absd_str += absd_str_tmp
-                        last_eq = eq_dict[node]
-                        output_type = "Bit" if data['alu_op'] in config.bit_output_ops else "Data"
-                        node_dict.pop(node)
-                if "in" in data['1']:
-                    if data['alu_op'] in config.lut_supported_ops:
-                        bit_inputs.add(data['1'])
-                    else:
-                        inputs.add(data['1'])
-
-                if '2' in data:
-                    if "in" in data['2'] and "mux" in data['alu_op']:
-                        bit_inputs.add(data['2'])
-
-
-            if "in" in data['0']:
-                if data['alu_op'] in config.lut_supported_ops:
-                    bit_inputs.add(data['0'])
-                else:
-                    inputs.add(data['0'])
-
-
-    if last_eq == "":
-        for node, data in ret_val.items():
-            if data['alu_op'] != 'output' and data['alu_op'] != 'bit_output':
-                last_eq = data['0']
-                output_type = "Bit" if data['alu_op'] in config.bit_output_ops else "Data"
-
-    print(last_eq)
-
-    for i in inputs:
-        args_str += i + " : Data, "
-    for i in bit_inputs:
-        args_str += i + " : Bit, "
-
-
-    args_str = args_str[:-2]
-
-    peak_output = '''
-from peak import Peak, family_closure, Const
-from peak import family
-from peak.family import AbstractFamily
-
-@family_closure
-def mapping_function_fc(family: AbstractFamily):
-    Data = family.BitVector[16]
-    SData = family.Signed[16]
-    Bit = family.Bit
-    @family.assemble(locals(), globals())
-    class mapping_function(Peak):
-        def __call__(self, ''' + args_str + ''') -> ''' + output_type + ''':
-            ''' + absd_str + '''
-            return ''' + last_eq + '''
-      
-    return mapping_function
-'''
-
-    if not os.path.exists('outputs/peak_eqs'):
-        os.makedirs('outputs/peak_eqs')
-
-    with open("outputs/peak_eqs/peak_eq_" + str(sub_idx) + ".py", "w") as write_file:
-        write_file.write(peak_output)
-
-    return ret_val
-
+    print("swap")
 
 def check_no_cycles(pair, g1, g2):
 
