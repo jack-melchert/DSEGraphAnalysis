@@ -62,13 +62,16 @@ def read_subgraphs(file_ind_pairs):
                 graphs_per_file[graph_ind].add_edge(
                     line.split()[1], line.split()[2], port=line.split()[3])
 
-        sorted_graphs = sorted(graphs_sizes.items(), key=lambda x: x[1], reverse=True)
-        graphs += [graphs_per_file[i[0]] for i in sorted_graphs if i[0] in inds]
+        relabeled_graphs = []
+        for ind, graph in enumerate(graphs_per_file):
+            relabeled_graphs.append(nx.relabel_nodes(graph, name_mappings[ind]))
 
+        sorted_graphs = sorted(graphs_sizes.items(), key=lambda x: x[1], reverse=True)
+        graphs += [relabeled_graphs[i[0]] for i in sorted_graphs if i[0] in inds]
 
     subgraphs = []
     for ind, graph in enumerate(graphs):
-        subgraphs.append(DSESubgraph(nx.relabel_nodes(graph, name_mappings[ind])))
+        subgraphs.append(DSESubgraph(graph))
     return subgraphs
 
 def is_node_input_or_output(node):
@@ -348,8 +351,6 @@ def swap_ports(subgraph, dest_node):
         else:
             subgraph.edges[(s, dest_node, 0)]['port'] = "0"
 
-    print("swap")
-
 def check_no_cycles(pair, g1, g2):
 
     a0 = pair[0][1]['start']
@@ -377,3 +378,13 @@ def gen_verilog():
     if not os.path.exists('outputs/verilog'):
         os.makedirs('outputs/verilog')
     m.compile(f"outputs/verilog/PE", PE, output="coreir-verilog")
+
+def print_green(string):
+    CGREEN  = '\33[32m'
+    CEND = '\033[0m'
+    print(CGREEN + string + CEND)
+
+def print_red(string):
+    CRED = '\033[91m'
+    CEND = '\033[0m'
+    print(CRED + string + CEND)

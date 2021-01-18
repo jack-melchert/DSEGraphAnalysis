@@ -13,6 +13,7 @@ from peak.mapper import ArchMapper
 from peak_gen.peak_wrapper import wrapped_peak_class
 from peak_gen.arch import read_arch, graph_arch
 
+
 class Subgraph():
     def __init__(self, subgraph: nx.MultiDiGraph):
         self.subgraph = subgraph
@@ -25,16 +26,15 @@ class DSESubgraph(Subgraph):
     def add_input_and_output_nodes(self):
 
         for n, d in self.subgraph.copy().nodes.data(True):
-            num_inputs = config.op_inputs[config.op_types[d["op"]]]
-            bitwidth = config.op_bitwidth[config.op_types[d["op"]]]
+            bitwidth = config.op_bitwidth[config.op_types[d["op_config"][0]]]
 
             pred = set()
             for s in self.subgraph.pred[n]:
                 pred.add(self.subgraph.edges[(s, n, 0)]['port'])
 
-            for i in range(num_inputs):
+            for i, bitw in enumerate(bitwidth):
                 if str(i) not in pred:
-                    if bitwidth == 1:
+                    if bitw == 1:
                         self.subgraph.add_node(str(config.node_counter), op="bit_input", op_config=["bit_input"])
                         self.subgraph.add_edge(str(config.node_counter), n, port=str(i))
                     else:
@@ -43,7 +43,7 @@ class DSESubgraph(Subgraph):
 
                     config.node_counter += 1
 
-            if num_inputs == 0: #const input
+            if len(bitwidth) == 0: #const input
                 if bitwidth == 1:
                     self.subgraph.add_node(
                         str(config.node_counter),
@@ -60,7 +60,7 @@ class DSESubgraph(Subgraph):
 
         for n, d in self.subgraph.copy().nodes.data(True):
             if len(list(self.subgraph.successors(n))) == 0:
-                if config.op_types[d["op"]] in config.bit_output_ops:
+                if config.op_types[d["op_config"][0]] in config.bit_output_ops:
                     self.subgraph.add_node(str(config.node_counter), op="bit_output", op_config=["bit_output"])
                     self.subgraph.add_edge(n, str(config.node_counter), port='0')
                 else:
@@ -181,10 +181,11 @@ def mapping_function_fc(family: AbstractFamily):
     '''
 
         self.peak_eq = peak_output
+        self.short_eq = last_eq
 
 
     def write_peak_eq(self, filename: str):
-        if not self.peak_eq:
+        if not hasattr(self, "peak_eq"):
             raise ValueError("Generate peak eq first")
 
         if not os.path.exists('outputs/peak_eqs'):
@@ -194,6 +195,7 @@ def mapping_function_fc(family: AbstractFamily):
             write_file.write(self.peak_eq)
 
     def generate_rewrite_rule(self, subgraph_ind):
+
         if not os.path.exists("./outputs/PE.json"):
             raise ValueError("Generate and write merged graph peak arch first")
 
@@ -201,22 +203,24 @@ def mapping_function_fc(family: AbstractFamily):
             raise ValueError("Generate and write peak_eq first")
 
         arch = read_arch("./outputs/PE.json")
+        graph_arch(arch)
         PE_fc = wrapped_peak_class(arch, debug=False)
         arch_mapper = ArchMapper(PE_fc)
 
         peak_eq = importlib.import_module("outputs.peak_eqs.peak_eq_" + str(subgraph_ind))
 
+        print("\nGenerating rewrite rule for:")
+        print(self.short_eq)
         ir_mapper = arch_mapper.process_ir_instruction(peak_eq.mapping_function_fc)
-        solution = ir_mapper.solve("btor", logic = QF_BV, external_loop=True)
+        solution = ir_mapper.solve(external_loop = True)
         if solution is None:
-            print("No rewrite rule found")
+            utils.print_red("No rewrite rule found")
         else:
+            utils.print_green("Found rewrite rule")
             self.rewrite_rule = solution
 
-
-
     def write_rewrite_rule(self, filename: str):
-        if not self.rewrite_rule:
+        if not hasattr(self, "rewrite_rule"):
             raise ValueError("Generate rewrite rule first")
 
         serialized_rr = self.rewrite_rule.serialize_bindings()
@@ -296,7 +300,7 @@ def mapping_function_fc(family: AbstractFamily):
 
 
     def write_peak_arch(self, filename: str):
-        if not self.arch:
+        if not hasattr(self, "arch"):
             raise ValueError("Generate peak arch first")
 
         if not os.path.exists('outputs/'):

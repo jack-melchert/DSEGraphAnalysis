@@ -24,22 +24,33 @@ def merge_subgraphs(file_ind_pairs):
 
     config.op_types_flipped = {v: k for k, v in config.op_types.items()}
 
+    print("Reading subgraphs")
+
     subgraphs = utils.read_subgraphs(file_ind_pairs)
 
     utils.add_primitive_ops(subgraphs)
 
+    print("Generating peak_eqs")
+
     for sub_idx, graph in enumerate(subgraphs):
         graph.add_input_and_output_nodes()
+        # graph.plot()
         graph.generate_peak_eq()
         graph.write_peak_eq("outputs/peak_eqs/peak_eq_" + str(sub_idx) + ".py")
+
+    print("Merging subgraphs")
 
     merger = DSEMerger(subgraphs)
 
     merger.merge_all_subgraphs()
 
+    print("Translating to arch")
+
     merger.merged_graph_to_arch()
     merger.write_merged_graph_arch()
     # merger.merged_graph.plot()
+
+    print("Generating rewrite rules")
 
     merger.generate_rewrite_rules()
     merger.write_rewrite_rules()

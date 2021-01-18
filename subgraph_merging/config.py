@@ -46,17 +46,17 @@ hardware_costs = {"const":12, "bitconst":1000, "and":1000, "or":1000, "xor":1000
     "gte":1000, "lte":1000, "sub":1000, "shr":1000}
 
 
-op_inputs = {"const":0, "bitconst":0, "and":2, "or":2, "xor":2, "shl":2, "lshr":2, "ashr":2, "add":2, "sub":2,
-    "sle":2, "sge":2, "ule":2, "uge":2, "eq":2, "slt":2, "sgt":2, "ult":2, "ugt":2, 
-    "smax":2, "smin":2, "umax":2, "umin":2, "absd":2, "abs":1, "mul":2, "mux":3,
-    "bitand":2, "bitor":2, "bitxor":2, "bitnot":1, "bitmux":3, "floatadd":2, "floatsub":2, "floatmul":2, "bit_alu":2,
-    "gte":2, "lte":2, "sub":2, "shr":2}
+# op_inputs = {"const":0, "bitconst":0, "and":2, "or":2, "xor":2, "shl":2, "lshr":2, "ashr":2, "add":2, "sub":2,
+#     "sle":2, "sge":2, "ule":2, "uge":2, "eq":2, "slt":2, "sgt":2, "ult":2, "ugt":2, 
+#     "smax":2, "smin":2, "umax":2, "umin":2, "absd":2, "abs":1, "mul":2, "mux":3,
+#     "bitand":3, "bitor":3, "bitxor":3, "bitnot":3, "bitmux":3, "floatadd":2, "floatsub":2, "floatmul":2, "bit_alu":2,
+#     "gte":2, "lte":2, "sub":2, "shr":2}
 
-op_bitwidth = {"const": 16, "bitconst": 1, "and": 16, "or": 16, "xor": 16, "shl": 16, "lshr": 16, "ashr": 16, "add": 16, "sub": 16,
-    "sle": 16, "sge": 16, "ule": 16, "uge": 16, "eq": 16, "slt": 16, "sgt": 16, "ult": 16, "ugt": 16, 
-    "smax": 16, "smin": 16, "umax": 16, "umin": 16, "absd": 16, "abs": 16, "mul": 16, "mux": 16,
-    "bitand": 1, "bitor": 1, "bitxor": 1, "bitnot": 1, "bitmux": 1, "floatadd": 16, "floatsub": 16, "floatmul": 16, "bit_alu": 16,
-    "gte": 16, "lte": 16, "sub": 16, "shr": 16}
+op_bitwidth = {"const": [], "bitconst": [], "and": [16, 16], "or": [16, 16], "xor": [16, 16], "shl": [16, 16], "lshr": [16, 16], "ashr": [16, 16], "add": [16, 16], "sub": [16, 16],
+    "sle": [16, 16], "sge": [16, 16], "ule": [16, 16], "uge": [16, 16], "eq": [16, 16], "slt": [16, 16], "sgt": [16, 16], "ult": [16, 16], "ugt": [16, 16], 
+    "smax": [16, 16], "smin": [16, 16], "umax": [16, 16], "umin": [16, 16], "absd": [16, 16], "abs": [16, 16], "mul": [16, 16], "mux": [16, 16, 1],
+    "bitand": [1, 1, 1], "bitor": [1, 1, 1], "bitxor": [1, 1, 1], "bitnot": [1, 1, 1], "bitmux": [1, 1, 1], "floatadd": [16, 16], "floatsub": [16, 16], "floatmul": [16, 16], "bit_alu": [16, 16],
+    "gte": [16, 16], "lte": [16, 16], "sub": [16, 16], "shr": [16, 16]}
 
 op_types = []
 op_types_flipped = []
