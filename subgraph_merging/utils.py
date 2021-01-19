@@ -76,12 +76,22 @@ def read_subgraphs(file_ind_pairs):
 
 def is_node_input_or_output(node):
 
-    input_output_names = config.input_names.union(config.input_names)
+    input_output_names = config.input_names.union(config.output_names)
 
     if 'op' in node:
         return node['op'] in input_output_names
     elif 'op0' in node and 'op1' in node:
         return node['op0'] in input_output_names or node['op1'] in input_output_names
+    else:
+        raise ValueError
+
+
+def is_node_output(node):
+
+    if 'op' in node:
+        return node['op'] in config.output_names
+    elif 'op0' in node and 'op1' in node:
+        return node['op0'] in config.output_names or node['op1'] in config.output_names
     else:
         raise ValueError
 

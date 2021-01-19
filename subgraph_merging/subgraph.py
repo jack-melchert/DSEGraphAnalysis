@@ -44,7 +44,7 @@ class DSESubgraph(Subgraph):
                     config.node_counter += 1
 
             if len(bitwidth) == 0: #const input
-                if bitwidth == 1:
+                if config.op_types[d["op_config"][0]] in config.bit_output_ops:
                     self.subgraph.add_node(
                         str(config.node_counter),
                         op="bit_const_input",
@@ -311,7 +311,6 @@ def mapping_function_fc(family: AbstractFamily):
 
     def plot(self):
         ret_g = self.subgraph.copy()
-
         groups = set(nx.get_node_attributes(ret_g, 'op').values())
         mapping = dict(zip(sorted(groups), count()))
         nodes = ret_g.nodes()
@@ -344,3 +343,86 @@ def mapping_function_fc(family: AbstractFamily):
         nx.draw_networkx_edge_labels(ret_g,pos,edge_labels=edge_labels)
 
         plt.show()
+    
+    def pipeline(self):
+        g = self.subgraph.copy()
+        g.add_node("start", op="start")
+
+        for n, d in g.copy().nodes(data = True):
+            if utils.is_node_input(d):
+                g.add_edge("start", n)
+
+        g.add_node("end", op="end")
+
+        arrival_time = {}
+        for n, d in g.copy().nodes(data = True):
+            arrival_time[n] = 0
+            if utils.is_node_output(d):
+                g.add_edge(n, "end")
+
+        queue = []
+        queue.append("start")
+
+
+        while len(queue) > 0:
+            curr_node = queue.pop(0)
+            for succ in g.successors(curr_node):
+                queue.append(succ)
+                succ_node = g.nodes[succ]
+                if succ_node['op'] in config.op_types and config.op_types[succ_node['op']] in config.op_timing:
+                    if arrival_time[succ] < arrival_time[curr_node] + config.op_timing[config.op_types[succ_node['op']]]:
+                        arrival_time[succ] = arrival_time[curr_node] + config.op_timing[config.op_types[succ_node['op']]]
+                else:
+                    if arrival_time[succ] < arrival_time[curr_node]:
+                        arrival_time[succ] = arrival_time[curr_node]
+
+        print("Arrival time:")
+        print(arrival_time, "\n")
+
+
+        critical_path = []
+
+        curr_node = "end"
+        while curr_node != "start":
+            max_time = -1 
+            for pred in g.predecessors(curr_node):
+                if arrival_time[pred] > max_time:
+                    max_time = arrival_time[pred]
+                    max_pred = pred
+            curr_node = max_pred
+            critical_path.append((curr_node, max_time))
+
+        print("Critical Path:", critical_path)
+
+        critical_path.reverse()
+
+        for (node, time) in critical_path:
+            print(node, time)
+
+        labels = {}
+        for n in g.nodes:
+            if g.nodes[n]['op'] in config.op_types:
+                labels[n] = n + "\n" + config.op_types[g.nodes[n]['op']] + "\n" + str(arrival_time[n])
+            else:
+                labels[n] = n + "\n" + str(arrival_time[n])
+        pos = nx.nx_agraph.graphviz_layout(g, prog='dot')
+        ec = nx.draw_networkx_edges(
+            g,
+            pos,
+            alpha=1,
+            width=3,
+            node_size=1500,
+            arrows=True,
+            arrowsize=15)
+        nc = nx.draw_networkx_nodes(
+            g,
+            pos,
+            # node_list=nodes,
+            # with_labels=False,
+            node_size=1500,
+            cmap=plt.cm.Pastel1,
+            alpha=1)
+        nx.draw_networkx_labels(g, pos, labels)
+
+        plt.show()
+        exit()

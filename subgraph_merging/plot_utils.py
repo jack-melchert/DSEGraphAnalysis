@@ -202,8 +202,6 @@ def plot_reconstructed_graph(g1, g2, g):
 
 
 def plot_graph(g):
-
-
     ret_g = g.copy()
 
     groups = set(nx.get_node_attributes(ret_g, 'op').values())

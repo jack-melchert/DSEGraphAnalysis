@@ -76,8 +76,8 @@ class Merger():
         weights = {}
 
         for k, v in config.op_types_flipped.items():
-            if k in config.hardware_costs:
-                weights[str(v)] = config.hardware_costs[k]
+            if k in config.op_area:
+                weights[str(v)] = config.op_area[k]
             else:
                 weights[str(v)] = 1000
 

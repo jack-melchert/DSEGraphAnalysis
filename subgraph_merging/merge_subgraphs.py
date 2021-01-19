@@ -48,7 +48,9 @@ def merge_subgraphs(file_ind_pairs):
 
     merger.merged_graph_to_arch()
     merger.write_merged_graph_arch()
-    # merger.merged_graph.plot()
+    merger.merged_graph.pipeline()
+
+    
 
     print("Generating rewrite rules")
 
