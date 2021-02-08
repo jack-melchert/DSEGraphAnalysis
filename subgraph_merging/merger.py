@@ -256,7 +256,7 @@ class Merger():
 
         for u, v, d in g1.edges.data(True):
             if not str(u) + "/" + str(v) in b and not g.has_edge(b[u],b[v]):
-                g.add_edge(b[u], b[v], port=d['port'])
+                g.add_edge(b[u], b[v], port=d['port'], regs=0)
 
         return DSESubgraph(g)
 

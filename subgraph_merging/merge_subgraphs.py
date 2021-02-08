@@ -39,20 +39,16 @@ def merge_subgraphs(file_ind_pairs):
         graph.write_peak_eq("outputs/peak_eqs/peak_eq_" + str(sub_idx) + ".py")
 
     print("Merging subgraphs")
-
     merger = DSEMerger(subgraphs)
-
     merger.merge_all_subgraphs()
 
+    # merger.merged_graph.pipeline(4)
     print("Translating to arch")
-
     merger.merged_graph_to_arch()
     merger.write_merged_graph_arch()
-    merger.merged_graph.pipeline()
 
-    
+    utils.gen_verilog()
 
     print("Generating rewrite rules")
-
     merger.generate_rewrite_rules()
     merger.write_rewrite_rules()

@@ -45,11 +45,11 @@ op_area = {"const":12, "bitconst":1000, "and":1000, "or":1000, "xor":1000, "shl"
     "bitand":13, "bitor":13, "bitxor":13, "bitnot":13, "bitmux":13, "floatadd":1000, "floatsub":1000, "floatmul":1000, "bit_alu":1000,
     "gte":1000, "lte":1000, "sub":1000, "shr":1000}
 
-op_timing = {"const":12, "bitconst":1000, "and":1000, "or":1000, "xor":1000, "shl":1000, "lshr":1000, "ashr":1000, "add":1000, "sub":1000,
-    "sle":1000, "sge":1000, "ule":1000, "uge":1000, "eq":1000, "slt":1000, "sgt":1000, "ult":1000, "ugt":1000, 
-    "smax":1000, "smin":1000, "umax":1000, "umin":1000, "absd":1000, "abs":1000, "mul":2030, "mux":30,
-    "bitand":13, "bitor":13, "bitxor":13, "bitnot":13, "bitmux":13, "floatadd":1000, "floatsub":1000, "floatmul":1000, "bit_alu":1000,
-    "gte":1000, "lte":1000, "sub":1000, "shr":1000}
+op_timing = {"const":12, "bitconst":100, "and":100, "or":100, "xor":100, "shl":100, "lshr":100, "ashr":100, "add":100, "sub":100,
+    "sle":100, "sge":100, "ule":100, "uge":100, "eq":100, "slt":100, "sgt":100, "ult":100, "ugt":100, 
+    "smax":100, "smin":100, "umax":100, "umin":100, "absd":100, "abs":100, "mul":200, "mux":30,
+    "bitand":13, "bitor":13, "bitxor":13, "bitnot":13, "bitmux":13, "floatadd":100, "floatsub":100, "floatmul":100, "bit_alu":100,
+    "gte":100, "lte":100, "sub":100, "shr":100}
 
 
 # op_inputs = {"const":0, "bitconst":0, "and":2, "or":2, "xor":2, "shl":2, "lshr":2, "ashr":2, "add":2, "sub":2,

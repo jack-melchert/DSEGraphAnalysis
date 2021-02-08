@@ -60,7 +60,7 @@ def read_subgraphs(file_ind_pairs):
  
             elif 'e' in line:
                 graphs_per_file[graph_ind].add_edge(
-                    line.split()[1], line.split()[2], port=line.split()[3])
+                    line.split()[1], line.split()[2], port=line.split()[3], regs=0)
 
         relabeled_graphs = []
         for ind, graph in enumerate(graphs_per_file):
@@ -167,19 +167,42 @@ def sort_modules(modules, subgraph):
                 output_modules.append(module)
                 modules.remove(module)
                 sort_count = 1000
+            elif module['type'] == 'reg' or module['type'] == 'bitreg':
+                inorder = True
+
+                for in0_item in module["in"]:
+                    if "reg" in in0_item:
+                        inorder = inorder and in0_item in ids
+                    else:
+                        inorder = inorder and (is_node_input(subgraph.nodes(data = True)[in0_item]) or in0_item in ids)
+
+                if inorder:
+                    ids.append(module["id"])
+                    output_modules.append(module)
+                    modules.remove(module)
+                    sort_count = 1000
             else:
             
                 inorder = True
 
                 for in0_item in module["in0"]:
-                    inorder = inorder and (is_node_input(subgraph.nodes(data = True)[in0_item]) or in0_item in ids)
+                    if "reg" in in0_item:
+                        inorder = inorder and in0_item in ids
+                    else:
+                        inorder = inorder and (is_node_input(subgraph.nodes(data = True)[in0_item]) or in0_item in ids)
 
                 for in1_item in module["in1"]:
-                    inorder = inorder and (is_node_input(subgraph.nodes(data = True)[in1_item]) or in1_item in ids)
+                    if "reg" in in1_item:
+                        inorder = inorder and in1_item in ids
+                    else:
+                        inorder = inorder and (is_node_input(subgraph.nodes(data = True)[in1_item]) or in1_item in ids)
 
                 if module['type'] == 'mux' or module['type'] == 'bitmux':
                     for sel_item in module["in2"]:
-                        inorder = inorder and (is_node_input(subgraph.nodes(data = True)[sel_item]) or sel_item in ids)
+                        if "reg" in sel_item:
+                            inorder = inorder and sel_item in ids
+                        else:
+                            inorder = inorder and (is_node_input(subgraph.nodes(data = True)[sel_item]) or sel_item in ids)
 
                 if inorder:
                     ids.append(module["id"])
@@ -193,111 +216,6 @@ def sort_modules(modules, subgraph):
             for i in modules_save:
                 print(i)
     return output_modules
-
-
-def merged_subgraph_to_arch(subgraph):
-
-    arch = {}
-    arch["input_width"] = 16
-    arch["output_width"] = 16
-    arch["enable_input_regs"] = False
-    arch["enable_output_regs"] = False
-    modules = {}
-    ids = []
-    connected_ids = []
-
-    for n, d in subgraph.nodes.data(True):
-
-        # Don't want to put input and output nodes in actual arch
-        if d["op"] != "output" and d["op"] != "bit_output" and d["op"] != "const_input" and d["op"] != "bit_const_input":
-
-            # Only want id of input nodes
-            if d["op"] != "input" and d["op"] != "bit_input":
-                modules[n] = {}
-                modules[n]["id"] = n
-
-                op = config.op_types[d["op"]]
-                op_config = [config.op_types[x] for x in d["op_config"]]
-
-                # if op == "lut":
-                #     modules[n]["type"] = 'lut'
-                # elif op in bitwise_ops:
-                #     modules[n]["type"] = 'bit_alu'
-                # elif op == "smax" or op == "umax" or op == "sge" or op == "uge":
-                #     modules[n]["type"] = "gte"
-                # elif op == "smin" or op == "umin" or op == "sle" or op == "ule":
-                #     modules[n]["type"] = "lte"
-                # elif op == "slt" or op == "sgt" or op == "ult" or op == "ugt" or op == "eq":
-                #     modules[n]["type"] = "sub"
-                # elif op == "ashr" or op == "lshr":
-                #     modules[n]["type"] = "shr"
-                # else:
-                modules[n]["type"] = op
-                    # for alu_op in op_config:
-                    #     if alu_op not in alu_supported_ops and alu_op not in config.lut_supported_ops:
-                    #         print("Warning: possible unsupported ALU operation found in subgraph:", n)
-                    #     if alu_op in fp_alu_supported_ops:
-                    #         op = "fp_alu"
-                    # if op == "lut":
-                    #     modules[n]["type"] = 'lut'
-                    # elif op == "fp_alu":
-                    #     modules[n]["type"] = 'fp_alu'
-                    # else:
-                    #     modules[n]["type"] = 'alu'
-
-            ids.append(n)
-
-    outputs = set()
-    bit_outputs = set()
-
-    for u, v, d in subgraph.edges.data(True):
-        if v in modules:
-            connected_ids.append(u)
-            if modules[v]["type"] != "const" and modules[v]["type"] != "bitconst":
-                if d["port"] == "0":
-                    if "in0" in modules[v]:
-                        modules[v]["in0"].append(u)
-                    else:
-                        modules[v]["in0"] = [u]
-                elif d["port"] == "1":
-                    if "in1" in modules[v]:
-                        modules[v]["in1"].append(u)
-                    else:
-                        modules[v]["in1"] = [u]
-                elif d["port"] == "2":
-                    if "in2" in modules[v]:
-                        modules[v]["in2"].append(u)
-                    else:
-                        modules[v]["in2"] = [u]
-        
-        # Add to output mux
-        if subgraph.nodes.data(True)[v]["op"] == "output":
-            # op_config = [config.op_types[x] for x in subgraph.nodes.data(True)[u]["op_config"]]
-            # for alu_op in op_config:
-            #     if alu_op in config.bit_output_ops:
-            #         bit_outputs.add(u)
-
-            outputs.add(u)
-
-        if subgraph.nodes.data(True)[v]["op"] == "bit_output":
-            bit_outputs.add(u)
-
-    arch["modules"] = [v for v in modules.values()]
-    arch["outputs"] = [list(outputs)]
-    if len(bit_outputs) > 0:
-        arch["bit_outputs"] = [list(bit_outputs)]
-    else:
-        arch["bit_outputs"] = []
-
-    if not os.path.exists('outputs/'):
-        os.makedirs('outputs/')
-
-    arch["modules"] = sort_modules(arch["modules"])
-
-    with open("outputs/PE.json", "w") as write_file:
-        write_file.write(json.dumps(arch, indent=4, sort_keys=True))
-
-    return arch
 
 
 def construct_eq(in0, in1, op, absd_count, in2=""):
@@ -379,9 +297,43 @@ def check_no_cycles(pair, g1, g2):
 
     return not cycle_exists
     
+def get_node_timing(g, v):
+    if v == 'start' or v == 'end':
+        return 0
+    else:
+        if g.nodes(data = True)[v]['op'] in config.op_types and config.op_types[g.nodes(data = True)[v]['op']] in config.op_timing:
+            return config.op_timing[config.op_types[g.nodes(data = True)[v]['op']]]
+        else:
+            return 10
+
+def predecessors(g, v):
+    ret = list(g.predecessors(v))
+    return ret
+
+def successors(g, v):
+    ret = list(g.successors(v))
+    return ret
+
+def get_clock_period(g):
+    critical_path = 0
+
+    for path in nx.all_simple_paths(g, source='start', target='end'):
+        temp_crit_path = 0
+
+        for u, v in zip(path, path[1:]):
+            temp_crit_path += get_node_timing(g, u)
+
+            if g[u][v].get(0)['regs'] > 0:
+                critical_path = max(critical_path, temp_crit_path)
+                temp_crit_path = 0
+
+        critical_path = max(critical_path, temp_crit_path)
+
+    return critical_path
 
 def gen_verilog():
     arch = read_arch("outputs/PE.json")
+    graph_arch(arch)
     PE_fc = pe_arch_closure(arch)
     PE = PE_fc(family.MagmaFamily())
 

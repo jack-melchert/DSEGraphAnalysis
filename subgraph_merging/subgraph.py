@@ -1,6 +1,7 @@
 import os
 import json
 import importlib
+import math
 import typing as tp
 import networkx as nx
 import matplotlib.pyplot as plt
@@ -36,10 +37,10 @@ class DSESubgraph(Subgraph):
                 if str(i) not in pred:
                     if bitw == 1:
                         self.subgraph.add_node(str(config.node_counter), op="bit_input", op_config=["bit_input"])
-                        self.subgraph.add_edge(str(config.node_counter), n, port=str(i))
+                        self.subgraph.add_edge(str(config.node_counter), n, port=str(i), regs=0)
                     else:
                         self.subgraph.add_node(str(config.node_counter), op="input", op_config=["input"])
-                        self.subgraph.add_edge(str(config.node_counter), n, port=str(i))               
+                        self.subgraph.add_edge(str(config.node_counter), n, port=str(i), regs=0)               
 
                     config.node_counter += 1
 
@@ -49,23 +50,23 @@ class DSESubgraph(Subgraph):
                         str(config.node_counter),
                         op="bit_const_input",
                         op_config=["bit_const_input"])
-                    self.subgraph.add_edge(str(config.node_counter), n, port='0')
+                    self.subgraph.add_edge(str(config.node_counter), n, port='0', regs=0)
                 else:
                     self.subgraph.add_node(
                         str(config.node_counter),
                         op="const_input",
                         op_config=["const_input"])
-                    self.subgraph.add_edge(str(config.node_counter), n, port='0')
+                    self.subgraph.add_edge(str(config.node_counter), n, port='0', regs=0)
                 config.node_counter += 1
 
         for n, d in self.subgraph.copy().nodes.data(True):
             if len(list(self.subgraph.successors(n))) == 0:
                 if config.op_types[d["op_config"][0]] in config.bit_output_ops:
                     self.subgraph.add_node(str(config.node_counter), op="bit_output", op_config=["bit_output"])
-                    self.subgraph.add_edge(n, str(config.node_counter), port='0')
+                    self.subgraph.add_edge(n, str(config.node_counter), port='0', regs=0)
                 else:
                     self.subgraph.add_node(str(config.node_counter), op="output", op_config=["output"])
-                    self.subgraph.add_edge(n, str(config.node_counter), port='0')
+                    self.subgraph.add_edge(n, str(config.node_counter), port='0', regs=0)
                 config.node_counter += 1
 
     def generate_peak_eq(self):
@@ -260,33 +261,51 @@ def mapping_function_fc(family: AbstractFamily):
 
         outputs = set()
         bit_outputs = set()
-
+        regs_counter = 0
         for u, v, d in self.subgraph.edges.data(True):
-            if v in modules:
-                connected_ids.append(u)
-                if modules[v]["type"] != "const" and modules[v]["type"] != "bitconst":
+            u_temp = u
+            v_temp = v
+            for r in range(d["regs"]):
+                name = "reg" + str(regs_counter)
+                modules[name] = {}
+                modules[name]["id"] = name
+                bit_signal = False
+                if config.op_types[self.subgraph.nodes.data(True)[v]["op"]] == "lut" or \
+                    self.subgraph.nodes.data(True)[v]["op"] == "bit_output" or \
+                    self.subgraph.nodes.data(True)[v]["op"] == "bit_const" or \
+                    d['port'] == 2:
+                    modules[name]["type"] = "bitreg"
+                else:
+                    modules[name]["type"] = "reg"
+                modules[name]["in"] = [u_temp]
+                u_temp = name
+                ids.append(name)
+                regs_counter += 1
+            if v_temp in modules:
+                connected_ids.append(u_temp)
+                if modules[v_temp]["type"] != "const" and modules[v_temp]["type"] != "bitconst":
                     if d["port"] == "0":
-                        if "in0" in modules[v]:
-                            modules[v]["in0"].append(u)
+                        if "in0" in modules[v_temp]:
+                            modules[v_temp]["in0"].append(u_temp)
                         else:
-                            modules[v]["in0"] = [u]
+                            modules[v_temp]["in0"] = [u_temp]
                     elif d["port"] == "1":
-                        if "in1" in modules[v]:
-                            modules[v]["in1"].append(u)
+                        if "in1" in modules[v_temp]:
+                            modules[v_temp]["in1"].append(u_temp)
                         else:
-                            modules[v]["in1"] = [u]
+                            modules[v_temp]["in1"] = [u_temp]
                     elif d["port"] == "2":
-                        if "in2" in modules[v]:
-                            modules[v]["in2"].append(u)
+                        if "in2" in modules[v_temp]:
+                            modules[v_temp]["in2"].append(u_temp)
                         else:
-                            modules[v]["in2"] = [u]
+                            modules[v_temp]["in2"] = [u_temp]
             
             # Add to output mux
-            if self.subgraph.nodes.data(True)[v]["op"] == "output":
-                outputs.add(u)
+            if self.subgraph.nodes.data(True)[v_temp]["op"] == "output":
+                outputs.add(u_temp)
 
-            if self.subgraph.nodes.data(True)[v]["op"] == "bit_output":
-                bit_outputs.add(u)
+            if self.subgraph.nodes.data(True)[v_temp]["op"] == "bit_output":
+                bit_outputs.add(u_temp)
 
         arch["modules"] = [v for v in modules.values()]
         arch["outputs"] = [list(outputs)]
@@ -294,7 +313,6 @@ def mapping_function_fc(family: AbstractFamily):
             arch["bit_outputs"] = [list(bit_outputs)]
         else:
             arch["bit_outputs"] = []
-
         arch["modules"] = utils.sort_modules(arch["modules"], self.subgraph)
         self.arch = arch
 
@@ -320,7 +338,7 @@ def mapping_function_fc(family: AbstractFamily):
         for n in nodes:
             labels[n] = config.op_types[ret_g.nodes[n]['op']] + "\n" + n
         for u, v, d in ret_g.edges(data = True):
-            edge_labels[(u,v)] = d["port"]
+            edge_labels[(u,v)] = d["regs"]
         pos = nx.nx_agraph.graphviz_layout(ret_g, prog='dot')
         ec = nx.draw_networkx_edges(
             ret_g,
@@ -344,13 +362,13 @@ def mapping_function_fc(family: AbstractFamily):
 
         plt.show()
     
-    def pipeline(self):
-        g = self.subgraph.copy()
+    def pipeline(self, num_regs):
+        g = self.subgraph
         g.add_node("start", op="start")
 
         for n, d in g.copy().nodes(data = True):
             if utils.is_node_input(d):
-                g.add_edge("start", n)
+                g.add_edge("start", n, regs=0)
 
         g.add_node("end", op="end")
 
@@ -358,11 +376,10 @@ def mapping_function_fc(family: AbstractFamily):
         for n, d in g.copy().nodes(data = True):
             arrival_time[n] = 0
             if utils.is_node_output(d):
-                g.add_edge(n, "end")
+                g.add_edge(n, "end", regs=0)
 
         queue = []
         queue.append("start")
-
 
         while len(queue) > 0:
             curr_node = queue.pop(0)
@@ -394,35 +411,102 @@ def mapping_function_fc(family: AbstractFamily):
 
         print("Critical Path:", critical_path)
 
-        critical_path.reverse()
 
-        for (node, time) in critical_path:
-            print(node, time)
-
-        labels = {}
-        for n in g.nodes:
-            if g.nodes[n]['op'] in config.op_types:
-                labels[n] = n + "\n" + config.op_types[g.nodes[n]['op']] + "\n" + str(arrival_time[n])
+        regs = {}
+        for edge in g.edges:
+            if utils.is_node_output(g.nodes[edge[1]]):
+                regs[edge] = {"regs":num_regs}
             else:
-                labels[n] = n + "\n" + str(arrival_time[n])
-        pos = nx.nx_agraph.graphviz_layout(g, prog='dot')
-        ec = nx.draw_networkx_edges(
-            g,
-            pos,
-            alpha=1,
-            width=3,
-            node_size=1500,
-            arrows=True,
-            arrowsize=15)
-        nc = nx.draw_networkx_nodes(
-            g,
-            pos,
-            # node_list=nodes,
-            # with_labels=False,
-            node_size=1500,
-            cmap=plt.cm.Pastel1,
-            alpha=1)
-        nx.draw_networkx_labels(g, pos, labels)
+                regs[edge] = {"regs":0}
 
-        plt.show()
-        exit()
+        nx.set_edge_attributes(g, regs)
+
+        t_min = 0
+        for n in g.nodes():
+            t_min = max(t_min, utils.get_node_timing(g, n))
+
+        t_max = arrival_time['end']
+
+        print("t_min:", t_min)
+
+        while t_min != t_max:
+            t = math.floor((t_min + t_max)/2)
+            if self.retime(t):
+                t_max = utils.get_clock_period(g)
+            else:
+                t_min += 1
+                t_max = max(t_max, utils.get_clock_period(g))
+
+        print("Final clock period:", utils.get_clock_period(g))
+
+        g.remove_node("start")
+        g.remove_node("end")
+
+        # self.plot()
+        # breakpoint()
+        # exit()
+      
+
+    def retime(self, T):
+        print("Retiming with T:", T)
+        g = self.subgraph
+
+        nodes = list(reversed(list(nx.topological_sort(g))))
+        for v in nodes:
+            if v != 'start' and v != 'end':
+                successors = utils.successors(g, v)
+                if len(successors) == 0:
+                    n = 0
+                else:
+                    n = g[v][successors[0]].get(0)['regs']
+                for succ in successors:
+                    new_n = g[v][succ].get(0)['regs']
+                    if new_n < n:
+                        n = new_n
+                for e in utils.successors(g, v):
+                    g[v][e].get(0)['regs'] -= n
+                for e in utils.predecessors(g, v):
+                    g[e][v].get(0)['regs'] += n
+        
+
+        delta = {}
+        delta['start'] = 0
+        for v in list(nx.topological_sort(g)):
+            if v != 'start' and v != 'end':
+                predecessors = utils.predecessors(g, v)
+                if len(predecessors) == 0:
+                    n = 0
+                else:
+                    n = g[predecessors[0]][v].get(0)['regs']
+                for pred in predecessors:
+                    new_n = g[pred][v].get(0)['regs']
+                    if new_n < n:
+                        n = new_n
+
+                max_delta = 0
+                for pred in predecessors:
+                    if g[pred][v].get(0)['regs'] == n:
+                        new_delta = delta[pred] 
+                        if new_delta > max_delta:
+                            max_delta = new_delta
+
+                v_cost = utils.get_node_timing(g, v)
+                delta[v] = v_cost + max_delta
+
+                if delta[v] > T:
+                    if n == 0:
+                        return False
+                    
+                    n -= 1
+                    delta[v] = utils.get_node_timing(g, v)
+                
+                if 'end' not in utils.successors(g, v):
+                    for e in utils.predecessors(g, v):
+                        g[e][v].get(0)['regs'] -= n
+                    for e in utils.successors(g, v):
+                        g[v][e].get(0)['regs'] += n
+
+        return True
+
+
+        # exit()
