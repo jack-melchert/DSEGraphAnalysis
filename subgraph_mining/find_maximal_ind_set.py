@@ -29,19 +29,23 @@ def find_maximal_independent_set(filename, sub_filename):
 
     graph_ind = -1
     graphs = []
+    invalid_graphs = []
     for line in lines:
         if ':' in line:
             graph_ind += 1
             graphs.append(nx.DiGraph())
         elif 'v' in line:
             rg.add_nodes_from(graphs[graph_ind], [(line.split()[1], {"type": line.split()[2]})])
+            if line.split()[2] == '0':
+                invalid_graphs.append(graph_ind)
         elif 'e' in line:
             rg.add_edges_from(graphs[graph_ind], [(line.split()[1], line.split()[2])])
-    # graphs.reverse()
 
     ret = {}
 
     for idx, pat_graph in enumerate(graphs):
+        if idx in invalid_graphs:
+            continue
     
         pattern = pat_graph
 

@@ -76,10 +76,11 @@ class Merger():
         weights = {}
 
         for k, v in config.op_types_flipped.items():
-            if k in config.op_area:
-                weights[str(v)] = config.op_area[k]
+            if k in config.op_map and config.op_map[k] in config.op_costs:
+                weights[str(v)] = config.op_costs[config.op_map[k]]["area"]
             else:
-                weights[str(v)] = 1000
+                weights[str(v)] = 1
+                print(f"Node {k} not in op_costs")
 
         gc = nx.Graph()
 
@@ -258,6 +259,8 @@ class Merger():
             if not str(u) + "/" + str(v) in b and not g.has_edge(b[u],b[v]):
                 g.add_edge(b[u], b[v], port=d['port'], regs=0)
 
+        relabel = {i:j for i,j in b.items() if "/" not in i}
+        nx.relabel_nodes(g1, relabel, copy=False)
         return DSESubgraph(g)
 
     def set_merged_graph(self, merged_graph: nx.MultiDiGraph):

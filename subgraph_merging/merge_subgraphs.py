@@ -4,7 +4,7 @@ import subgraph_merging.utils as utils
 from .merger import DSEMerger 
 import subgraph_merging.config as config
 
-def merge_subgraphs(file_ind_pairs):
+def merge_subgraphs(file_ind_pairs, pipeline):
     utils.clean_output_dirs()
 
     with open(".temp/op_types.txt", "rb") as file:
@@ -34,21 +34,27 @@ def merge_subgraphs(file_ind_pairs):
 
     for sub_idx, graph in enumerate(subgraphs):
         graph.add_input_and_output_nodes()
-        # graph.plot()
-        graph.generate_peak_eq()
-        graph.write_peak_eq("outputs/peak_eqs/peak_eq_" + str(sub_idx) + ".py")
 
     print("Merging subgraphs")
     merger = DSEMerger(subgraphs)
     merger.merge_all_subgraphs()
 
-    # merger.merged_graph.pipeline(4)
-    print("Translating to arch")
     merger.merged_graph_to_arch()
     merger.write_merged_graph_arch()
 
-    utils.gen_verilog()
+    for sub_idx, graph in enumerate(subgraphs):
+        graph.generate_peak_eq()
+        graph.write_peak_eq("outputs/peak_eqs/peak_eq_" + str(sub_idx) + ".py")
 
     print("Generating rewrite rules")
     merger.generate_rewrite_rules()
     merger.write_rewrite_rules()
+
+
+    if pipeline > 0:
+        merger.merged_graph.pipeline(pipeline)
+    print("Translating to arch")
+    merger.merged_graph_to_arch()
+    merger.write_merged_graph_arch()
+    utils.gen_verilog()
+

@@ -95,12 +95,30 @@ def is_node_output(node):
     else:
         raise ValueError
 
+def is_node_input_or_const(node):
+
+    if 'op' in node:
+        return node['op'] in config.input_names | config.const_names
+    elif 'op0' in node and 'op1' in node:
+        return node['op0'] in config.input_names | config.const_names or node['op1'] in config.input_names | config.const_names
+    else:
+        raise ValueError
+
 def is_node_input(node):
 
     if 'op' in node:
         return node['op'] in config.input_names
     elif 'op0' in node and 'op1' in node:
         return node['op0'] in config.input_names or node['op1'] in config.input_names
+    else:
+        raise ValueError
+
+def is_node_bit_input(node):
+
+    if 'op' in node:
+        return node['op'] in config.input_names and "bit" in node['op']
+    elif 'op0' in node and 'op1' in node:
+        return (node['op0'] in config.input_names and "bit" in node['op0']) or (node['op1'] in config.input_names and "bit" in node['op1'])
     else:
         raise ValueError
 
@@ -174,7 +192,7 @@ def sort_modules(modules, subgraph):
                     if "reg" in in0_item:
                         inorder = inorder and in0_item in ids
                     else:
-                        inorder = inorder and (is_node_input(subgraph.nodes(data = True)[in0_item]) or in0_item in ids)
+                        inorder = inorder and (is_node_input_or_const(subgraph.nodes(data = True)[in0_item]) or in0_item in ids)
 
                 if inorder:
                     ids.append(module["id"])
@@ -189,20 +207,20 @@ def sort_modules(modules, subgraph):
                     if "reg" in in0_item:
                         inorder = inorder and in0_item in ids
                     else:
-                        inorder = inorder and (is_node_input(subgraph.nodes(data = True)[in0_item]) or in0_item in ids)
+                        inorder = inorder and (is_node_input_or_const(subgraph.nodes(data = True)[in0_item]) or in0_item in ids)
 
                 for in1_item in module["in1"]:
                     if "reg" in in1_item:
                         inorder = inorder and in1_item in ids
                     else:
-                        inorder = inorder and (is_node_input(subgraph.nodes(data = True)[in1_item]) or in1_item in ids)
+                        inorder = inorder and (is_node_input_or_const(subgraph.nodes(data = True)[in1_item]) or in1_item in ids)
 
                 if module['type'] == 'mux' or module['type'] == 'bitmux':
                     for sel_item in module["in2"]:
                         if "reg" in sel_item:
                             inorder = inorder and sel_item in ids
                         else:
-                            inorder = inorder and (is_node_input(subgraph.nodes(data = True)[sel_item]) or sel_item in ids)
+                            inorder = inorder and (is_node_input_or_const(subgraph.nodes(data = True)[sel_item]) or sel_item in ids)
 
                 if inorder:
                     ids.append(module["id"])
@@ -222,47 +240,47 @@ def construct_eq(in0, in1, op, absd_count, in2=""):
 
     op_str_map = {}
 
-    op_str_map["mul"] = "Data(in_0 * in_1)"
-    op_str_map["not"] = "Data(~in_0)"
-    op_str_map["and"] = "Data(in_0 & in_1)"
-    op_str_map["or"] = "Data(in_0 | in_1)"
-    op_str_map["xor"] = "Data(in_0 ^ in_1)"
-    op_str_map["shl"] = "Data(in_0 << in_1)"
-    op_str_map["lshr"] = "Data(in_0 >> in_1)"
-    op_str_map["ashr"] = "Data(SData(in_0) >> SData(in_1))"
-    op_str_map["neg"] = "Data(-in_0)"
-    op_str_map["add"] = "Data(in_0 + in_1)"
-    op_str_map["sub"] = "Data(in_0 - in_1)"
-    op_str_map["sle"] = "Bit(SData(in_0) <= SData(in_1))"
-    op_str_map["sge"] = "Bit(SData(in_0) >= SData(in_1))"
-    op_str_map["ule"] = "Bit(in_0 <= in_1)"
-    op_str_map["uge"] = "Bit(in_0 >= in_1)"
-    op_str_map["eq"] = "Bit(in_0 == in_1)"
-    op_str_map["slt"] = "Bit(SData(in_0) < SData(in_1))"
-    op_str_map["sgt"] = "Bit(SData(in_0) > SData(in_1))"
-    op_str_map["ult"] = "Bit(in_0 < in_1)"
-    op_str_map["ugt"] = "Bit(in_0 > in_1)"
-    op_str_map["mux"] = "Data(in_2.ite(in_1,in_0))"
-    op_str_map["umax"] = "Data((in_0 >= in_1).ite(in_0, in_1))"
-    op_str_map["umin"] = "Data((in_0 <= in_1).ite(in_0, in_1))"
-    op_str_map["smax"] = "Data((SData(in_0) >= SData(in_1)).ite(SData(in_0), SData(in_1)))"
-    op_str_map["smin"] = "Data((SData(in_0) <= SData(in_1)).ite(SData(in_0), SData(in_1)))"
-    op_str_map["abs"] = "Data((SData(in_0) >= SData(0)).ite(SData(in_0), SData(in_0)*SData(-1)))"
-    op_str_map["bitand"] = "Bit(in_0 & in_1)"
+    op_str_map["mul"] = "Data(UInt(in_0) * UInt(in_1))"
+    op_str_map["not"] = "Data(~UInt(in_0))"
+    op_str_map["and"] = "Data(UInt(in_0) & UInt(in_1))"
+    op_str_map["or"] = "Data(UInt(in_0) | UInt(in_1))"
+    op_str_map["xor"] = "Data(UInt(in_0) ^ UInt(in_1))"
+    op_str_map["shl"] = "Data(UInt(in_0) << UInt(in_1))"
+    op_str_map["lshr"] = "Data(UInt(in_0) >> UInt(in_1))"
+    op_str_map["ashr"] = "Data(SInt(in_0) >> SInt(in_1))"
+    op_str_map["neg"] = "Data(-UInt(in_0))"
+    op_str_map["add"] = "Data(UInt(in_0) + UInt(in_1))"
+    op_str_map["sub"] = "Data(UInt(in_0) - UInt(in_1))"
+    op_str_map["sle"] = "Bit(SInt(in_0) <= SInt(in_1))"
+    op_str_map["sge"] = "Bit(SInt(in_0) >= SInt(in_1))"
+    op_str_map["ule"] = "Bit(UInt(in_0) <= UInt(in_1))"
+    op_str_map["uge"] = "Bit(UInt(in_0) >= UInt(in_1))"
+    op_str_map["eq"] = "Bit(UInt(in_0) == UInt(in_1))"
+    op_str_map["slt"] = "Bit(SInt(in_0) < SInt(in_1))"
+    op_str_map["sgt"] = "Bit(SInt(in_0) > SInt(in_1))"
+    op_str_map["ult"] = "Bit(UInt(in_0) < UInt(in_1))"
+    op_str_map["ugt"] = "Bit(UInt(in_0) > UInt(in_1))"
+    op_str_map["mux"] = "Data(in_2.ite(UInt(in_1),UInt(in_0)))"
+    op_str_map["umax"] = "Data((UInt(in_0) >= UInt(in_1)).ite(UInt(in_0), UInt(in_1)))"
+    op_str_map["umin"] = "Data((UInt(in_0) <= UInt(in_1)).ite(UInt(in_0), UInt(in_1)))"
+    op_str_map["smax"] = "Data((SInt(in_0) >= SInt(in_1)).ite(SInt(in_0), SInt(in_1)))"
+    op_str_map["smin"] = "Data((SInt(in_0) <= SInt(in_1)).ite(SInt(in_0), SInt(in_1)))"
+    op_str_map["abs"] = "Data((SInt(in_0) >= SInt(S)).ite(SInt(in_0), SInt(in_0)*SInt(S1)))"
+    op_str_map["bitand"] = "Bit(UInt(in_0) & UInt(in_1))"
     op_str_map["bitnot"] = "Bit(~in0)" 
-    op_str_map["bitor"] = "Bit(in_0 | in_1)"
-    op_str_map["bitxor"] = "Bit(in_0 ^ in_1)"
-    op_str_map["bitmux"] = "Bit(in_2.ite(in_1, in_0))"
-    op_str_map["floatmul"] = "Data(in_0 * in_1)"
-    op_str_map["floatadd"] = "Data(in_0 + in_1)"
-    op_str_map["floatsub"] = "Data(in_0 - in_1)"
+    op_str_map["bitor"] = "Bit(UInt(in_0) | UInt(in_1))"
+    op_str_map["bitxor"] = "Bit(UInt(in_0) ^ UInt(in_1))"
+    op_str_map["bitmux"] = "Bit(in_2.ite(UInt(in_1), UInt(in_0)))"
+    op_str_map["floatmul"] = "Data(UInt(in_0) * UInt(in_1))"
+    op_str_map["floatadd"] = "Data(UInt(in_0) + UInt(in_1))"
+    op_str_map["floatsub"] = "Data(UInt(in_0) - UInt(in_1))"
 
     sub = "sub" + str(absd_count)
 
-    op_str_map["absd"] = "Data((" + sub + " >= SData(0)).ite(" + sub + ", (SData(-1)*" + sub + ")))"
+    op_str_map["absd"] = "Data((" + sub + " >= SInt(0)).ite(" + sub + ", (SInt(-1)*" + sub + ")))"
 
     if op == "absd":
-        absd_str = sub + " = SData(in_0 - in_1); "
+        absd_str = sub + " = SInt(in_0 - in_1); "
         absd_count += 1
     else:
         absd_str = ""
@@ -301,10 +319,12 @@ def get_node_timing(g, v):
     if v == 'start' or v == 'end':
         return 0
     else:
-        if g.nodes(data = True)[v]['op'] in config.op_types and config.op_types[g.nodes(data = True)[v]['op']] in config.op_timing:
-            return config.op_timing[config.op_types[g.nodes(data = True)[v]['op']]]
+        if g.nodes(data = True)[v]['op'] in config.op_types and config.op_types[g.nodes(data = True)[v]['op']] in config.op_map:
+            return config.op_costs[config.op_map[config.op_types[g.nodes(data = True)[v]['op']]]]["crit_path"]
         else:
-            return 10
+            # print(f"Couldn't find node {config.op_types[g.nodes(data = True)[v]['op']]} in op_costs")
+            return 0.01
+
 
 def predecessors(g, v):
     ret = list(g.predecessors(v))
