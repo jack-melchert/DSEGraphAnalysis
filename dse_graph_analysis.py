@@ -12,7 +12,7 @@ def main():
     parser = argparse.ArgumentParser(description='Graph analysis of a coreir application')
     parser.add_argument('-c', '--cached', help='Use cached subgraphs', action="store_true", default=False)
     parser.add_argument('-f', '--files', nargs='+', metavar=("file", "subgraph_index"),help='Application files for analysis', action='append')
-
+    parser.add_argument('-p', '--pipeline', help="Number of pipelining stages", type=int, default = 0)
 
     args = parser.parse_args()
 
@@ -77,7 +77,7 @@ def main():
             subgraph_file_ind_pairs[dot_files[file_ind].replace(".dot", "_subgraphs.dot")] = file_ind_pairs[file]
 
     print("Starting subgraph merging")
-    merge_subgraphs(subgraph_file_ind_pairs)
+    merge_subgraphs(subgraph_file_ind_pairs, args.pipeline)
 
 if __name__ == "__main__":
     main()
