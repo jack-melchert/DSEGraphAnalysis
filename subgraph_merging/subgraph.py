@@ -1,5 +1,6 @@
 import os
 import json
+import time
 import importlib
 import math
 import typing as tp
@@ -25,7 +26,6 @@ class DSESubgraph(Subgraph):
         super().__init__(subgraph)
 
     def add_input_and_output_nodes(self):
-
         for n, d in self.subgraph.copy().nodes.data(True):
             bitwidth = config.op_bitwidth[config.op_types[d["op_config"][0]]]
 
@@ -75,7 +75,7 @@ class DSESubgraph(Subgraph):
         input_nodes = set()
 
         for n, d in self.subgraph.nodes.data(True):
-            if utils.is_node_input(d):
+            if utils.is_node_input_or_const(d):
                 input_nodes.add("data" + n)
             else:
                 pred = {}
@@ -170,7 +170,8 @@ from peak.family import AbstractFamily
 @family_closure
 def mapping_function_fc(family: AbstractFamily):
     Data = family.BitVector[16]
-    SData = family.Signed[16]
+    SInt = family.Signed[16]
+    UInt = family.Unsigned[16]
     Bit = family.Bit
     @family.assemble(locals(), globals())
     class mapping_function(Peak):
@@ -202,18 +203,39 @@ def mapping_function_fc(family: AbstractFamily):
 
         if not os.path.exists("./outputs/peak_eqs/peak_eq_" + str(subgraph_ind) + ".py"):
             raise ValueError("Generate and write peak_eq first")
+        print("\nGenerating rewrite rule for:")
+        print(self.short_eq)
 
         arch = read_arch("./outputs/PE.json")
         graph_arch(arch)
-        PE_fc = wrapped_peak_class(arch, debug=False)
-        arch_mapper = ArchMapper(PE_fc)
+        PE_fc = wrapped_peak_class(arch)
+
+        arch_inputs = arch.inputs
+
+        input_constraints = {}
+
+        for n, d in self.subgraph.nodes.data(True):
+            if utils.is_node_input(d):
+                if utils.is_node_bit_input(d):
+                    input_constraints[(f"bitinputs{arch.bit_inputs.index(n)}",)] = (f"data{n}",)
+                else:
+                    input_constraints[(f"inputs{arch.inputs.index(n)}",)] = (f"data{n}",)
+
+        arch_mapper = ArchMapper(PE_fc, input_constraints = input_constraints)
 
         peak_eq = importlib.import_module("outputs.peak_eqs.peak_eq_" + str(subgraph_ind))
 
-        print("\nGenerating rewrite rule for:")
-        print(self.short_eq)
-        ir_mapper = arch_mapper.process_ir_instruction(peak_eq.mapping_function_fc)
-        solution = ir_mapper.solve(external_loop = True)
+        if subgraph_ind > -1:
+            print("Solving...")
+            ir_mapper = arch_mapper.process_ir_instruction(peak_eq.mapping_function_fc)
+            start = time.time()
+            solution = ir_mapper.solve('z3')
+            end = time.time()
+            print("Rewrite rule solving time:", end-start)
+        else:
+            print("Skipping...")
+            solution = None
+
         if solution is None:
             utils.print_red("No rewrite rule found")
         else:
@@ -225,6 +247,8 @@ def mapping_function_fc(family: AbstractFamily):
             raise ValueError("Generate rewrite rule first")
 
         serialized_rr = self.rewrite_rule.serialize_bindings()
+
+        serialized_rr["ibinding"][-1] = ({'type': 'Bit', 'width': 1, 'value': True},  ('clk_en',))
 
         if not os.path.exists('outputs/rewrite_rules'):
             os.makedirs('outputs/rewrite_rules')
@@ -269,11 +293,11 @@ def mapping_function_fc(family: AbstractFamily):
                 name = "reg" + str(regs_counter)
                 modules[name] = {}
                 modules[name]["id"] = name
-                bit_signal = False
+         
                 if config.op_types[self.subgraph.nodes.data(True)[v]["op"]] == "lut" or \
                     self.subgraph.nodes.data(True)[v]["op"] == "bit_output" or \
                     self.subgraph.nodes.data(True)[v]["op"] == "bit_const" or \
-                    d['port'] == 2:
+                    d['port'] == '2':
                     modules[name]["type"] = "bitreg"
                 else:
                     modules[name]["type"] = "reg"
@@ -324,8 +348,13 @@ def mapping_function_fc(family: AbstractFamily):
         if not os.path.exists('outputs/'):
             os.makedirs('outputs/')
 
+
         with open(filename, "w") as write_file:
             write_file.write(json.dumps(self.arch, indent=4, sort_keys=True))
+
+        arch = read_arch("./outputs/PE.json")
+        graph_arch(arch)
+
 
     def plot(self):
         ret_g = self.subgraph.copy()
@@ -336,7 +365,10 @@ def mapping_function_fc(family: AbstractFamily):
         labels = {}
         edge_labels = {}
         for n in nodes:
-            labels[n] = config.op_types[ret_g.nodes[n]['op']] + "\n" + n
+            if ret_g.nodes[n]['op'] in config.op_types:
+                labels[n] = config.op_types[ret_g.nodes[n]['op']] + "\n" + n
+            else:
+                labels[n] = ret_g.nodes[n]['op']
         for u, v, d in ret_g.edges(data = True):
             edge_labels[(u,v)] = d["regs"]
         pos = nx.nx_agraph.graphviz_layout(ret_g, prog='dot')
@@ -363,11 +395,12 @@ def mapping_function_fc(family: AbstractFamily):
         plt.show()
     
     def pipeline(self, num_regs):
+        # self.plot()
         g = self.subgraph
         g.add_node("start", op="start")
 
         for n, d in g.copy().nodes(data = True):
-            if utils.is_node_input(d):
+            if utils.is_node_input_or_const(d):
                 g.add_edge("start", n, regs=0)
 
         g.add_node("end", op="end")
@@ -386,9 +419,9 @@ def mapping_function_fc(family: AbstractFamily):
             for succ in g.successors(curr_node):
                 queue.append(succ)
                 succ_node = g.nodes[succ]
-                if succ_node['op'] in config.op_types and config.op_types[succ_node['op']] in config.op_timing:
-                    if arrival_time[succ] < arrival_time[curr_node] + config.op_timing[config.op_types[succ_node['op']]]:
-                        arrival_time[succ] = arrival_time[curr_node] + config.op_timing[config.op_types[succ_node['op']]]
+                if succ_node['op'] in config.op_types and config.op_types[succ_node['op']] in config.op_map:
+                    if arrival_time[succ] < arrival_time[curr_node] + config.op_costs[config.op_map[config.op_types[succ_node['op']]]]["crit_path"]:
+                        arrival_time[succ] = arrival_time[curr_node] + config.op_costs[config.op_map[config.op_types[succ_node['op']]]]["crit_path"]
                 else:
                     if arrival_time[succ] < arrival_time[curr_node]:
                         arrival_time[succ] = arrival_time[curr_node]
@@ -425,18 +458,23 @@ def mapping_function_fc(family: AbstractFamily):
         for n in g.nodes():
             t_min = max(t_min, utils.get_node_timing(g, n))
 
-        t_max = arrival_time['end']
+        t_max = utils.get_clock_period(g)
 
-        print("t_min:", t_min)
-
-        while t_min != t_max:
-            t = math.floor((t_min + t_max)/2)
+        i = 0
+        while (t_max - t_min) > 0.01:
+            print("Iteration", i)
+            print("t_min:", t_min)
+            print("t_max:", t_max)
+            t = (t_min + t_max)/2
             if self.retime(t):
                 t_max = utils.get_clock_period(g)
             else:
-                t_min += 1
+                t_min += 0.01
                 t_max = max(t_max, utils.get_clock_period(g))
+            i += 1
+            print()
 
+        # self.retime(1.2)
         print("Final clock period:", utils.get_clock_period(g))
 
         g.remove_node("start")
@@ -468,7 +506,8 @@ def mapping_function_fc(family: AbstractFamily):
                 for e in utils.predecessors(g, v):
                     g[e][v].get(0)['regs'] += n
         
-
+        # self.plot()
+        # return True
         delta = {}
         delta['start'] = 0
         for v in list(nx.topological_sort(g)):
@@ -506,6 +545,7 @@ def mapping_function_fc(family: AbstractFamily):
                     for e in utils.successors(g, v):
                         g[v][e].get(0)['regs'] += n
 
+        # self.plot()
         return True
 
 
