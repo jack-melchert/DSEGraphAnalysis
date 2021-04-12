@@ -19,7 +19,7 @@ def merge_subgraphs(file_ind_pairs, pipeline):
     config.op_types = {str(k): v for k, v in enumerate(curr_ops)}
 
     for op in config.non_coreir_ops:
-        if op not in config.op_types:
+        if op not in config.op_types.values():
             config.op_types[op] = op
 
     config.op_types_flipped = {v: k for k, v in config.op_types.items()}
@@ -56,5 +56,5 @@ def merge_subgraphs(file_ind_pairs, pipeline):
     print("Translating to arch")
     merger.merged_graph_to_arch()
     merger.write_merged_graph_arch()
-    utils.gen_verilog()
+    #utils.gen_verilog()
 
