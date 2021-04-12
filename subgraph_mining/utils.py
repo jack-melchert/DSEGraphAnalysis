@@ -44,31 +44,34 @@ def sort_subgraph_list(input_filename, output_filename, max_ind_set_size):
 
 def grami_subgraph_mining(input_file, subgraph_inds):
 
-    if len(subgraph_inds) != 0:
+    if len(subgraph_inds) == 0:
+        max_subgraph = 1
+    else:
         max_subgraph = max(subgraph_inds)
-        support = 20 # Starting support number
-
-        print("Starting GraMi subgraph mining...")
         
+    support = 20 # Starting support number
+
+    print("Starting GraMi subgraph mining...")
+    
+    num_subgraphs = 0
+
+    while num_subgraphs <= max_subgraph and support > 0:
+        
+        os.system('''cd GraMi
+        ./grami -f ../../''' + input_file + ''' -s ''' + str(support) + ''' -t 1 -p 0 > grami_log.txt
+        cd ../''')
+
+        with open("GraMi/Output.txt") as file:
+            lines = file.readlines()
+
         num_subgraphs = 0
+        
+        for line in lines.copy():
+            if ':' in line:
+                num_subgraphs += 1
 
-        while num_subgraphs <= max_subgraph and support > 0:
-            
-            os.system('''cd GraMi
-            ./grami -f ../../''' + input_file + ''' -s ''' + str(support) + ''' -t 1 -p 0 > grami_log.txt
-            cd ../''')
+        print("Support =", support, " num_subgraphs =", num_subgraphs)
 
-            with open("GraMi/Output.txt") as file:
-                lines = file.readlines()
+        support -= 1
 
-            num_subgraphs = 0
-            
-            for line in lines.copy():
-                if ':' in line:
-                    num_subgraphs += 1
-
-            print("Support =", support, " num_subgraphs =", num_subgraphs)
-
-            support -= 1
-
-        print("Finished GraMi subgraph mining")
+    print("Finished GraMi subgraph mining")
