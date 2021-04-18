@@ -229,7 +229,7 @@ def mapping_function_fc(family: AbstractFamily):
             print("Solving...")
             ir_mapper = arch_mapper.process_ir_instruction(peak_eq.mapping_function_fc)
             start = time.time()
-            solution = ir_mapper.solve('z3')
+            solution = ir_mapper.solve('btor', external_loop=True, logic=QF_BV)
             end = time.time()
             print("Rewrite rule solving time:", end-start)
         else:
@@ -237,7 +237,16 @@ def mapping_function_fc(family: AbstractFamily):
             solution = None
 
         if solution is None:
-            utils.print_red("No rewrite rule found")
+            utils.print_red("No rewrite rule found, trying without input constraints")
+            arch_mapper = ArchMapper(PE_fc)
+            ir_mapper = arch_mapper.process_ir_instruction(peak_eq.mapping_function_fc)
+            solution = ir_mapper.solve('btor', external_loop=True, logic=QF_BV)
+            if solution is None:
+                print("Still couldn't find solution")
+                exit()
+            else:
+                utils.print_green("Found rewrite rule")
+                self.rewrite_rule = solution
         else:
             utils.print_green("Found rewrite rule")
             self.rewrite_rule = solution
@@ -275,7 +284,6 @@ def mapping_function_fc(family: AbstractFamily):
                 if d["op"] != "input" and d["op"] != "bit_input":
                     modules[n] = {}
                     modules[n]["id"] = n
-
                     op = config.op_types[d["op"]]
                     op_config = [config.op_types[x] for x in d["op_config"]]
 
@@ -545,8 +553,16 @@ def mapping_function_fc(family: AbstractFamily):
                     for e in utils.successors(g, v):
                         g[v][e].get(0)['regs'] += n
 
-        # self.plot()
         return True
 
+    def calc_area_and_energy(self):
+        energy_area_dict = {}
+        energy_area_dict["energy"] = 0
+        energy_area_dict["area"] = 0
+        for node, data in self.subgraph.nodes(data=True):
+            op = config.op_types[data["op"]]
+            if op in config.op_costs:
+                energy_area_dict["energy"] += config.op_costs[op]["energy"]
+                energy_area_dict["area"] += config.op_costs[op]["area"]
 
-        # exit()
+        return energy_area_dict

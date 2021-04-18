@@ -34,7 +34,7 @@ non_coreir_ops = {"alu", "bit_alu", "lut", "input", "bit_input", "const_input", 
 
 weights = {"const":1, "bitconst":1, "and":1, "or":1, "xor":1, "shl":1, "lshr":1, "ashr":1, "add":1, "sub":1,
     "sle":1, "sge":1, "ule":1, "uge":1, "eq":1, "slt":1, "sgt":1, "ult":1, "ugt":1, 
-    "smax":2, "smin":2, "umax":2, "umin":2, "absd":4, "abs":2, "mul":1.5, "mux":1,
+    "smax":2, "smin":2, "umax":2, "umin":2, "absd":4, "abs":3, "mul":1, "mux":1,
     "bitand":1, "bitor":1, "bitxor":1, "bitnot":1, "bitmux":1, "floatadd":1, "floatsub":1, "floatmul":1, "bit_alu":1,
     "gte":1, "lte":1, "sub":1, "shr":1}
 

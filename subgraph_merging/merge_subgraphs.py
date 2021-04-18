@@ -15,7 +15,7 @@ def merge_subgraphs(file_ind_pairs, pipeline):
     for op in config.primitive_ops:
         if op not in curr_ops:
             curr_ops.append(op)
-
+    
     config.op_types = {str(k): v for k, v in enumerate(curr_ops)}
 
     for op in config.non_coreir_ops:
@@ -46,6 +46,7 @@ def merge_subgraphs(file_ind_pairs, pipeline):
         graph.generate_peak_eq()
         graph.write_peak_eq("outputs/peak_eqs/peak_eq_" + str(sub_idx) + ".py")
 
+    merger.print_area_and_energy()
     print("Generating rewrite rules")
     merger.generate_rewrite_rules()
     merger.write_rewrite_rules()
@@ -53,6 +54,7 @@ def merge_subgraphs(file_ind_pairs, pipeline):
 
     if pipeline > 0:
         merger.merged_graph.pipeline(pipeline)
+
     print("Translating to arch")
     merger.merged_graph_to_arch()
     merger.write_merged_graph_arch()

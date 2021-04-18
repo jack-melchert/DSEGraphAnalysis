@@ -28,6 +28,10 @@ def convert_coreir_to_dot(coreir_files):
     used_ops.add("bitconst")
     op_types[op] = op_index
     op_index += 1
+    op = "sge"
+    used_ops.add("sge")
+    op_types[op] = op_index
+    op_index += 1
    
     for ind, f in enumerate(coreir_files):
         

@@ -280,6 +280,11 @@ class Merger():
 
         self.set_merged_graph(merged_graph)
 
+    def print_area_and_energy(self):
+        energy_area_dict = self.merged_graph.calc_area_and_energy()
+        print("Total energy:", energy_area_dict["energy"])
+        print("Total area:", energy_area_dict["area"])
+
 
 class DSEMerger(Merger):
     def __init__(self, subgraphs: tp.List):

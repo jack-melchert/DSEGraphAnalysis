@@ -52,6 +52,8 @@ def read_subgraphs(file_ind_pairs):
                         op = "lut"
                     else:
                         op = line.split()[2]
+                    if op in config.op_types_flipped:
+                        op = config.op_types_flipped[op]
                     graphs_per_file[graph_ind].add_node(
                         line.split()[1], op=op, op_config=[line.split()[2]])
                     graphs_sizes[graph_ind] += config.weights[op_in]
