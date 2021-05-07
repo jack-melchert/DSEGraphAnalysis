@@ -42,13 +42,17 @@ def merge_subgraphs(file_ind_pairs, pipeline):
     merger.merged_graph_to_arch()
     merger.write_merged_graph_arch()
 
+    mul_ops = []
+
     for sub_idx, graph in enumerate(subgraphs):
         graph.generate_peak_eq()
         graph.write_peak_eq("outputs/peak_eqs/peak_eq_" + str(sub_idx) + ".py")
+        mul_ops.append(graph.contains_mul())
 
-    merger.print_area_and_energy()
+
+
     print("Generating rewrite rules")
-    merger.generate_rewrite_rules()
+    merger.generate_rewrite_rules(mul_ops)
     merger.write_rewrite_rules()
 
 
@@ -58,5 +62,5 @@ def merge_subgraphs(file_ind_pairs, pipeline):
     print("Translating to arch")
     merger.merged_graph_to_arch()
     merger.write_merged_graph_arch()
-    #utils.gen_verilog()
-
+    merger.merged_graph.analyze_pe()
+    merger.print_area_and_energy()

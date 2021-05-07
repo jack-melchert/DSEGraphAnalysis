@@ -15,6 +15,8 @@ from peak.mapper import ArchMapper
 from peak_gen.peak_wrapper import wrapped_peak_class
 from peak_gen.arch import read_arch, graph_arch
 
+import hwtypes
+
 
 class Subgraph():
     def __init__(self, subgraph: nx.MultiDiGraph):
@@ -185,6 +187,13 @@ def mapping_function_fc(family: AbstractFamily):
         self.peak_eq = peak_output
         self.short_eq = last_eq
 
+    def contains_mul(self):
+        for n, d in self.subgraph.nodes.data(True):
+            op = config.op_types[d['op']]
+            if op == "mul":
+                return True
+
+        return False
 
     def write_peak_eq(self, filename: str):
         if not hasattr(self, "peak_eq"):
@@ -196,7 +205,7 @@ def mapping_function_fc(family: AbstractFamily):
         with open(filename, "w") as write_file:
             write_file.write(self.peak_eq)
 
-    def generate_rewrite_rule(self, subgraph_ind):
+    def generate_rewrite_rule(self, subgraph_ind, mul_op):
 
         if not os.path.exists("./outputs/PE.json"):
             raise ValueError("Generate and write merged graph peak arch first")
@@ -221,7 +230,18 @@ def mapping_function_fc(family: AbstractFamily):
                 else:
                     input_constraints[(f"inputs{arch.inputs.index(n)}",)] = (f"data{n}",)
 
-        arch_mapper = ArchMapper(PE_fc, input_constraints = input_constraints)
+        path_constraints = {}
+
+        if not mul_op:
+            print("Datagating multipliers")
+            idx = 0
+            for module in arch.modules:
+                if module.type_ == "mul":
+                    path_constraints[('inst', 'mul', idx)] = hwtypes.smt_bit_vector.SMTBitVector[2](2)
+                    print(path_constraints)
+                    idx += 1
+
+        arch_mapper = ArchMapper(PE_fc, path_constraints = path_constraints, input_constraints = input_constraints)
 
         peak_eq = importlib.import_module("outputs.peak_eqs.peak_eq_" + str(subgraph_ind))
 
@@ -250,6 +270,7 @@ def mapping_function_fc(family: AbstractFamily):
         else:
             utils.print_green("Found rewrite rule")
             self.rewrite_rule = solution
+            for i in solution.ibinding: print(i)
 
     def write_rewrite_rule(self, filename: str):
         if not hasattr(self, "rewrite_rule"):
@@ -363,6 +384,40 @@ def mapping_function_fc(family: AbstractFamily):
         arch = read_arch("./outputs/PE.json")
         graph_arch(arch)
 
+    def analyze_pe(self):
+        if not hasattr(self, "arch"):
+            raise ValueError("Generate peak arch first")
+
+        arch = read_arch("./outputs/PE.json")
+        arch_stats = {}
+        arch_stats['num_inputs'] = arch.num_inputs
+        arch_stats['num_bit_inputs'] = arch.num_bit_inputs
+        arch_stats['num_outputs'] = arch.num_outputs
+        arch_stats['num_bit_outputs'] = arch.num_bit_outputs
+        arch_stats['num_modules'] = len(arch.modules)
+        arch_stats['num_reg'] = arch.num_reg 
+        arch_stats['num_bit_reg'] = arch.num_bit_reg 
+
+        arch_stats['num_IO'] = arch.num_inputs + arch.num_outputs 
+
+        inputs = set()
+        outputs = set()
+        for n,d in self.subgraph.nodes.data(True): 
+            if "input" in d['op']:
+                inputs.add(n) 
+
+            if "output" in d['op']:
+                outputs.add(n) 
+
+        total_paths = 0
+        for iput in inputs:
+            for oput in outputs:
+                total_paths += len(list(nx.all_simple_paths(self.subgraph, source=iput, target=oput)))
+
+        print("PE stats")
+        print("Num ops:", arch_stats['num_modules'])
+        print("Num I/O:", arch_stats['num_IO'])
+        print("Num paths:", total_paths)
 
     def plot(self):
         ret_g = self.subgraph.copy()
