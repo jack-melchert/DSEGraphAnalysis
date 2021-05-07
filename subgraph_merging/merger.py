@@ -80,7 +80,7 @@ class Merger():
                 weights[str(v)] = config.op_costs[config.op_map[k]]["area"]
             else:
                 weights[str(v)] = 1
-                print(f"Node {k} not in op_costs")
+                # print(f"Node {k} not in op_costs")
 
         gc = nx.Graph()
 
@@ -296,9 +296,9 @@ class DSEMerger(Merger):
     def write_merged_graph_arch(self):
         self.merged_graph.write_peak_arch("outputs/PE.json")
 
-    def generate_rewrite_rules(self):
+    def generate_rewrite_rules(self, mul_ops):
         for idx, subgraph in enumerate(self.subgraphs):
-            subgraph.generate_rewrite_rule(idx)
+            subgraph.generate_rewrite_rule(idx, mul_ops[idx])
 
     def write_rewrite_rules(self):
         for idx, subgraph in enumerate(self.subgraphs):
