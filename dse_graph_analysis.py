@@ -75,7 +75,7 @@ def main():
         dot_files = [".temp/" + os.path.basename(f).replace(".json", ".dot") for f in file_names]
         for file_ind, file in enumerate(file_names):
             subgraph_file_ind_pairs[dot_files[file_ind].replace(".dot", "_subgraphs.dot")] = file_ind_pairs[file]
-    breakpoint()
+    
     print("Starting subgraph merging")
     merge_subgraphs(subgraph_file_ind_pairs, args.pipeline)
 

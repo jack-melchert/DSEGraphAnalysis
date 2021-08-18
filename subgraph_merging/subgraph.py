@@ -231,19 +231,19 @@ def mapping_function_fc(family: AbstractFamily):
         #         else:
         #             input_constraints[(f"inputs{arch.inputs.index(n)}",)] = (f"data{n}",)
 
-        # path_constraints = {}
+        path_constraints = {}
 
-        # if not mul_op:
-        #     print("Datagating multipliers")
-        #     idx = 0
-        #     for module in arch.modules:
-        #         if module.type_ == "mul":
-        #             path_constraints[('inst', 'mul', idx)] = hwtypes.smt_bit_vector.SMTBitVector[1](1)
-        #             print(path_constraints)
-        #             idx += 1
+        if not mul_op:
+            print("Datagating multipliers")
+            idx = 0
+            for module in arch.modules:
+                if module.type_ == "mul":
+                    path_constraints[('inst', 'mul', idx)] = hwtypes.smt_bit_vector.SMTBitVector[1](1)
+                    print(path_constraints)
+                    idx += 1
 
         # arch_mapper = ArchMapper(PE_fc, path_constraints = path_constraints, input_constraints = input_constraints)
-        arch_mapper = ArchMapper(PE_fc)
+        arch_mapper = ArchMapper(PE_fc, path_constraints = path_constraints)
         peak_eq = importlib.import_module("outputs.peak_eqs.peak_eq_" + str(subgraph_ind))
 
         smt_time_file = open("smt_solving_times.txt", "a")
