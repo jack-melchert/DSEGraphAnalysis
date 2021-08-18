@@ -172,6 +172,7 @@ from peak.family import AbstractFamily
 @family_closure
 def mapping_function_fc(family: AbstractFamily):
     Data = family.BitVector[16]
+    Data32 = family.Unsigned[32]
     SInt = family.Signed[16]
     UInt = family.Unsigned[16]
     Bit = family.Bit
@@ -190,7 +191,7 @@ def mapping_function_fc(family: AbstractFamily):
     def contains_mul(self):
         for n, d in self.subgraph.nodes.data(True):
             op = config.op_types[d['op']]
-            if op == "mul":
+            if op == "mul" or op == "mult_middle":
                 return True
 
         return False
@@ -221,14 +222,14 @@ def mapping_function_fc(family: AbstractFamily):
 
         arch_inputs = arch.inputs
 
-        input_constraints = {}
+        # input_constraints = {}
 
-        for n, d in self.subgraph.nodes.data(True):
-            if utils.is_node_input(d):
-                if utils.is_node_bit_input(d):
-                    input_constraints[(f"bitinputs{arch.bit_inputs.index(n)}",)] = (f"data{n}",)
-                else:
-                    input_constraints[(f"inputs{arch.inputs.index(n)}",)] = (f"data{n}",)
+        # for n, d in self.subgraph.nodes.data(True):
+        #     if utils.is_node_input(d):
+        #         if utils.is_node_bit_input(d):
+        #             input_constraints[(f"bitinputs{arch.bit_inputs.index(n)}",)] = (f"data{n}",)
+        #         else:
+        #             input_constraints[(f"inputs{arch.inputs.index(n)}",)] = (f"data{n}",)
 
         path_constraints = {}
 
@@ -237,20 +238,23 @@ def mapping_function_fc(family: AbstractFamily):
             idx = 0
             for module in arch.modules:
                 if module.type_ == "mul":
-                    path_constraints[('inst', 'mul', idx)] = hwtypes.smt_bit_vector.SMTBitVector[2](2)
+                    path_constraints[('inst', 'mul', idx)] = hwtypes.smt_bit_vector.SMTBitVector[1](1)
                     print(path_constraints)
                     idx += 1
 
-        arch_mapper = ArchMapper(PE_fc, path_constraints = path_constraints, input_constraints = input_constraints)
-
+        # arch_mapper = ArchMapper(PE_fc, path_constraints = path_constraints, input_constraints = input_constraints)
+        arch_mapper = ArchMapper(PE_fc, path_constraints = path_constraints)
         peak_eq = importlib.import_module("outputs.peak_eqs.peak_eq_" + str(subgraph_ind))
+
+        smt_time_file = open("smt_solving_times.txt", "a")
 
         if subgraph_ind > -1:
             print("Solving...")
-            ir_mapper = arch_mapper.process_ir_instruction(peak_eq.mapping_function_fc)
+            ir_mapper = arch_mapper.process_ir_instruction(peak_eq.mapping_function_fc, simple_formula=True)
             start = time.time()
-            solution = ir_mapper.solve('btor', external_loop=True, logic=QF_BV)
+            solution = ir_mapper.solve('btor', external_loop=True, itr_limit=80, logic=QF_BV)
             end = time.time()
+            smt_time_file.write(f"{self.short_eq} -> {end-start}\n")
             print("Rewrite rule solving time:", end-start)
         else:
             print("Skipping...")
@@ -370,13 +374,15 @@ def mapping_function_fc(family: AbstractFamily):
         self.arch = arch
 
 
-    def write_peak_arch(self, filename: str):
+    def write_peak_arch(self, filename: str, input_regs=False):
         if not hasattr(self, "arch"):
             raise ValueError("Generate peak arch first")
 
         if not os.path.exists('outputs/'):
             os.makedirs('outputs/')
 
+        if input_regs:
+            self.arch["enable_input_regs"] = True
 
         with open(filename, "w") as write_file:
             write_file.write(json.dumps(self.arch, indent=4, sort_keys=True))

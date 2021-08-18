@@ -64,3 +64,5 @@ def merge_subgraphs(file_ind_pairs, pipeline):
     merger.write_merged_graph_arch()
     merger.merged_graph.analyze_pe()
     merger.print_area_and_energy()
+
+    utils.gen_verilog()

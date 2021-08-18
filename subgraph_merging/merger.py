@@ -293,8 +293,8 @@ class DSEMerger(Merger):
     def merged_graph_to_arch(self):
         self.merged_graph.generate_peak_arch()
 
-    def write_merged_graph_arch(self):
-        self.merged_graph.write_peak_arch("outputs/PE.json")
+    def write_merged_graph_arch(self, input_regs=False):
+        self.merged_graph.write_peak_arch("outputs/PE.json", input_regs)
 
     def generate_rewrite_rules(self, mul_ops):
         for idx, subgraph in enumerate(self.subgraphs):
