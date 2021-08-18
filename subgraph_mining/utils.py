@@ -49,7 +49,7 @@ def grami_subgraph_mining(input_file, subgraph_inds):
     else:
         max_subgraph = max(subgraph_inds)
         
-    support = 20 # Starting support number
+    support = 40 # Starting support number
 
     print("Starting GraMi subgraph mining...")
     

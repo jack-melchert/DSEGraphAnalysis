@@ -48,6 +48,8 @@ def read_subgraphs(file_ind_pairs):
                         op = "sub"
                     elif op_in == "ashr" or op_in == "lshr":
                         op = "shr"
+                    elif op_in == "mult_middle":
+                        op = "mul"
                     elif op_in in config.lut_supported_ops:
                         op = "lut"
                     else:
@@ -152,6 +154,9 @@ def add_primitive_ops(subgraphs):
         elif op == "ashr" or op == "lshr":
             op_t = "shr"
             op_graph.add_node(str(config.node_counter), op=config.op_types_flipped[op_t], op_config=[config.op_types_flipped[op]])
+        elif op == "mult_middle":
+            op_t = "mul"
+            op_graph.add_node(str(config.node_counter), op=config.op_types_flipped[op_t], op_config=[config.op_types_flipped[op]])
         elif op in config.lut_supported_ops:
             op_t = "lut"
             op_graph.add_node(str(config.node_counter), op=config.op_types_flipped[op_t], op_config=[config.op_types_flipped[op]])
@@ -243,6 +248,7 @@ def construct_eq(in0, in1, op, absd_count, in2=""):
     op_str_map = {}
 
     op_str_map["mul"] = "Data(UInt(in_0) * UInt(in_1))"
+    op_str_map["mult_middle"] = "(Data32(in_0) * Data32(in_1))[8:24]"
     op_str_map["not"] = "Data(~UInt(in_0))"
     op_str_map["and"] = "Data(UInt(in_0) & UInt(in_1))"
     op_str_map["or"] = "Data(UInt(in_0) | UInt(in_1))"
