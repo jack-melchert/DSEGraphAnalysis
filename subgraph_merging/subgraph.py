@@ -250,9 +250,9 @@ def mapping_function_fc(family: AbstractFamily):
 
         if subgraph_ind > -1:
             print("Solving...")
-            ir_mapper = arch_mapper.process_ir_instruction(peak_eq.mapping_function_fc, simple_formula=True)
+            ir_mapper = arch_mapper.process_ir_instruction(peak_eq.mapping_function_fc)
             start = time.time()
-            solution = ir_mapper.solve('btor', external_loop=True, itr_limit=80, logic=QF_BV)
+            solution = ir_mapper.solve()
             end = time.time()
             smt_time_file.write(f"{self.short_eq} -> {end-start}\n")
             print("Rewrite rule solving time:", end-start)
@@ -264,7 +264,7 @@ def mapping_function_fc(family: AbstractFamily):
             utils.print_red("No rewrite rule found, trying without input constraints")
             arch_mapper = ArchMapper(PE_fc)
             ir_mapper = arch_mapper.process_ir_instruction(peak_eq.mapping_function_fc)
-            solution = ir_mapper.solve('btor', external_loop=True, logic=QF_BV)
+            solution = ir_mapper.solve()
             if solution is None:
                 print("Still couldn't find solution")
                 exit()
