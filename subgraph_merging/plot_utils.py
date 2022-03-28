@@ -3,7 +3,8 @@ import networkx as nx
 import matplotlib.pyplot as plt
 import subgraph_merging.config as config
 
-def plot_compatibility_graph(g1, g2, gb, gc):
+def plot_compatibility_graph(g1, g2, gb, gc, index):
+    plt.clf()
     fig, axes = plt.subplots(1, 4)
     ax = axes.flatten()
     # axes.margins(0.2)
@@ -112,7 +113,8 @@ def plot_compatibility_graph(g1, g2, gb, gc):
         width=3,
         labels=labels,ax=axes[3])
     plt.margins(0.2)
-    plt.show()
+    # plt.show()
+    plt.savefig(f"comp_graph_{index}.png")
 
 
 
