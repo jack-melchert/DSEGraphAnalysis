@@ -135,6 +135,94 @@ def add_primitive_ops(subgraphs):
 
     graph_weights = {}
     primitive_graphs = {}
+    idx = 0
+    for ind, op in enumerate(used_ops):
+        if op not in config.bit_input_ops and "const" not in op:
+            op_graph = nx.MultiDiGraph()
+            op_graph.add_node(str(config.node_counter), op=config.op_types_flipped['const'], op_config=[config.op_types_flipped['const']])
+            config.node_counter += 1    
+
+            if op == "and" or  op == "or" or op == "xor":
+                op_t = 'bit_alu'
+                op_graph.add_node(str(config.node_counter), op=config.op_types_flipped[op_t], op_config=[config.op_types_flipped[op]])
+            elif op == "smax" or op == "umax" or op == "sge" or op == "uge":
+                op_t = "gte"
+                op_graph.add_node(str(config.node_counter), op=config.op_types_flipped[op_t], op_config=[config.op_types_flipped[op]])
+            elif op == "smin" or op == "umin" or op == "sle" or op == "ule":
+                op_t = "lte"
+                op_graph.add_node(str(config.node_counter), op=config.op_types_flipped[op_t], op_config=[config.op_types_flipped[op]])
+            elif op == "slt" or op == "sgt" or op == "ult" or op == "ugt" or op == "eq":
+                op_t = "sub"
+                op_graph.add_node(str(config.node_counter), op=config.op_types_flipped[op_t], op_config=[config.op_types_flipped[op]])
+            elif op == "ashr" or op == "lshr":
+                op_t = "shr"
+                op_graph.add_node(str(config.node_counter), op=config.op_types_flipped[op_t], op_config=[config.op_types_flipped[op]])
+            elif op == "mult_middle":
+                op_t = "mul"
+                op_graph.add_node(str(config.node_counter), op=config.op_types_flipped[op_t], op_config=[config.op_types_flipped[op]])
+            elif op in config.lut_supported_ops:
+                op_t = "lut"
+                op_graph.add_node(str(config.node_counter), op=config.op_types_flipped[op_t], op_config=[config.op_types_flipped[op]])
+            else:
+                op_graph.add_node(str(config.node_counter), op=config.op_types_flipped[op], op_config=[config.op_types_flipped[op]])
+            config.node_counter += 1        
+        
+            op_graph.add_edge(str(config.node_counter-2), str(config.node_counter-1), port="1", regs=0)
+
+            graph_weights[idx] = config.weights[op]
+            primitive_graphs[idx] = op_graph
+            idx += 1
+
+    sorted_graphs = sorted(graph_weights.items(), key=lambda x: x[1], reverse=True)
+    for i in sorted_graphs:
+        subgraphs.append(DSESubgraph(primitive_graphs[i[0]]))
+
+    graph_weights = {}
+    primitive_graphs = {}
+    idx = 0
+    for ind, op in enumerate(used_ops):
+        if op not in config.bit_input_ops and "const" not in op and op in config.comm_ops:
+            op_graph = nx.MultiDiGraph()
+            op_graph.add_node(str(config.node_counter), op=config.op_types_flipped['const'], op_config=[config.op_types_flipped['const']])
+            config.node_counter += 1    
+
+            if op == "and" or  op == "or" or op == "xor":
+                op_t = 'bit_alu'
+                op_graph.add_node(str(config.node_counter), op=config.op_types_flipped[op_t], op_config=[config.op_types_flipped[op]])
+            elif op == "smax" or op == "umax" or op == "sge" or op == "uge":
+                op_t = "gte"
+                op_graph.add_node(str(config.node_counter), op=config.op_types_flipped[op_t], op_config=[config.op_types_flipped[op]])
+            elif op == "smin" or op == "umin" or op == "sle" or op == "ule":
+                op_t = "lte"
+                op_graph.add_node(str(config.node_counter), op=config.op_types_flipped[op_t], op_config=[config.op_types_flipped[op]])
+            elif op == "slt" or op == "sgt" or op == "ult" or op == "ugt" or op == "eq":
+                op_t = "sub"
+                op_graph.add_node(str(config.node_counter), op=config.op_types_flipped[op_t], op_config=[config.op_types_flipped[op]])
+            elif op == "ashr" or op == "lshr":
+                op_t = "shr"
+                op_graph.add_node(str(config.node_counter), op=config.op_types_flipped[op_t], op_config=[config.op_types_flipped[op]])
+            elif op == "mult_middle":
+                op_t = "mul"
+                op_graph.add_node(str(config.node_counter), op=config.op_types_flipped[op_t], op_config=[config.op_types_flipped[op]])
+            elif op in config.lut_supported_ops:
+                op_t = "lut"
+                op_graph.add_node(str(config.node_counter), op=config.op_types_flipped[op_t], op_config=[config.op_types_flipped[op]])
+            else:
+                op_graph.add_node(str(config.node_counter), op=config.op_types_flipped[op], op_config=[config.op_types_flipped[op]])
+            config.node_counter += 1        
+        
+            op_graph.add_edge(str(config.node_counter-2), str(config.node_counter-1), port="0", regs=0)
+
+            graph_weights[idx] = config.weights[op]
+            primitive_graphs[idx] = op_graph
+            idx += 1
+
+    sorted_graphs = sorted(graph_weights.items(), key=lambda x: x[1], reverse=True)
+    for i in sorted_graphs:
+        subgraphs.append(DSESubgraph(primitive_graphs[i[0]]))
+
+    graph_weights = {}
+    primitive_graphs = {}
 
     for ind, op in enumerate(used_ops):
         op_graph = nx.MultiDiGraph()
@@ -273,7 +361,7 @@ def construct_eq(in0, in1, op, absd_count, in2=""):
     op_str_map["umin"] = "Data((UInt(in_0) <= UInt(in_1)).ite(UInt(in_0), UInt(in_1)))"
     op_str_map["smax"] = "Data((SInt(in_0) >= SInt(in_1)).ite(SInt(in_0), SInt(in_1)))"
     op_str_map["smin"] = "Data((SInt(in_0) <= SInt(in_1)).ite(SInt(in_0), SInt(in_1)))"
-    op_str_map["abs"] = "Data((SInt(in_0) >= SInt(S)).ite(SInt(in_0), SInt(in_0)*SInt(S1)))"
+    op_str_map["abs"] = "Data((SInt(in_0) >= SInt(0)).ite(SInt(in_0), SInt(in_0)*SInt(-1)))"
     op_str_map["bitand"] = "Bit(Bit(in_0) & Bit(in_1))"
     op_str_map["bitnot"] = "Bit(~in0)" 
     op_str_map["bitor"] = "Bit(Bit(in_0) | Bit(in_1))"

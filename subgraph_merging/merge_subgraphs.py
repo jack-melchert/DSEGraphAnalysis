@@ -34,6 +34,7 @@ def merge_subgraphs(file_ind_pairs, pipeline):
 
     for sub_idx, graph in enumerate(subgraphs):
         graph.add_input_and_output_nodes()
+        graph.plot(sub_idx)
 
     print("Merging subgraphs")
     merger = DSEMerger(subgraphs)

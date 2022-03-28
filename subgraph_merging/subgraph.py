@@ -250,9 +250,9 @@ def mapping_function_fc(family: AbstractFamily):
 
         if subgraph_ind > -1:
             print("Solving...")
-            ir_mapper = arch_mapper.process_ir_instruction(peak_eq.mapping_function_fc, simple_formula=True)
+            ir_mapper = arch_mapper.process_ir_instruction(peak_eq.mapping_function_fc, simple_formula=False)
             start = time.time()
-            solution = ir_mapper.solve('btor', external_loop=True, itr_limit=80, logic=QF_BV)
+            solution = ir_mapper.solve('z3', external_loop=True, itr_limit=80, logic=QF_BV)
             end = time.time()
             smt_time_file.write(f"{self.short_eq} -> {end-start}\n")
             print("Rewrite rule solving time:", end-start)
@@ -425,7 +425,8 @@ def mapping_function_fc(family: AbstractFamily):
         print("Num I/O:", arch_stats['num_IO'])
         print("Num paths:", total_paths)
 
-    def plot(self):
+    def plot(self, index):
+        plt.clf()
         ret_g = self.subgraph.copy()
         groups = set(nx.get_node_attributes(ret_g, 'op').values())
         mapping = dict(zip(sorted(groups), count()))
@@ -439,7 +440,7 @@ def mapping_function_fc(family: AbstractFamily):
             else:
                 labels[n] = ret_g.nodes[n]['op']
         for u, v, d in ret_g.edges(data = True):
-            edge_labels[(u,v)] = d["regs"]
+            edge_labels[(u,v)] = d["port"]
         pos = nx.nx_agraph.graphviz_layout(ret_g, prog='dot')
         ec = nx.draw_networkx_edges(
             ret_g,
@@ -461,7 +462,7 @@ def mapping_function_fc(family: AbstractFamily):
         nx.draw_networkx_labels(ret_g, pos, labels)
         nx.draw_networkx_edge_labels(ret_g,pos,edge_labels=edge_labels)
 
-        plt.show()
+        plt.savefig(f"{index}.png")
     
     def pipeline(self, num_regs):
         # self.plot()

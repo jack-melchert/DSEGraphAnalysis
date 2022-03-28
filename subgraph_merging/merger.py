@@ -66,9 +66,8 @@ class Merger():
                     if d0['op0'] == d1['op0'] and d0['op1'] == d1['op1']:
                         if d0['port'] == d1['port']:
                             gb.add_edge(n0, n1)
-                        else:
-                            if config.op_types[d1['op1']] in config.comm_ops:
-                                gb.add_edge(n0, n1)
+                        elif config.op_types[d1['op1']] in config.comm_ops:
+                            gb.add_edge(n0, n1)
 
         return gb
 
@@ -266,17 +265,17 @@ class Merger():
     def set_merged_graph(self, merged_graph: nx.MultiDiGraph):
         self.merged_graph = merged_graph
 
-    def merge_subgraphs(self, g0: nx.MultiDiGraph, g1: nx.MultiDiGraph):
+    def merge_subgraphs(self, g0: nx.MultiDiGraph, g1: nx.MultiDiGraph, idx = None):
         gb = self.construct_compatibility_bipartite_graph(g0, g1)
         gc = self.construct_compatibility_graph(gb, g0, g1)
-        # plot_compatibility_graph(g0, g1, gb, gc)
+        # plot_compatibility_graph(g0, g1, gb, gc, idx)
         c = self.find_maximum_weight_clique(gc)
         return self.reconstruct_merged_graph(c, g0, g1)
 
     def merge_all_subgraphs(self):
         merged_graph = self.subgraphs[0]
-        for subgraph in self.subgraphs[1:]:
-            merged_graph = self.merge_subgraphs(merged_graph.subgraph, subgraph.subgraph)
+        for idx, subgraph in enumerate(self.subgraphs[1:]):
+            merged_graph = self.merge_subgraphs(merged_graph.subgraph, subgraph.subgraph, idx)
 
         self.set_merged_graph(merged_graph)
 
