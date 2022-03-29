@@ -222,14 +222,14 @@ def mapping_function_fc(family: AbstractFamily):
 
         arch_inputs = arch.inputs
 
-        # input_constraints = {}
+        input_constraints = {}
 
-        # for n, d in self.subgraph.nodes.data(True):
-        #     if utils.is_node_input(d):
-        #         if utils.is_node_bit_input(d):
-        #             input_constraints[(f"bitinputs{arch.bit_inputs.index(n)}",)] = (f"data{n}",)
-        #         else:
-        #             input_constraints[(f"inputs{arch.inputs.index(n)}",)] = (f"data{n}",)
+        for n, d in self.subgraph.nodes.data(True):
+            if utils.is_node_input(d):
+                if utils.is_node_bit_input(d):
+                    input_constraints[(f"bitinputs{arch.bit_inputs.index(n)}",)] = (f"data{n}",)
+                else:
+                    input_constraints[(f"inputs{arch.inputs.index(n)}",)] = (f"data{n}",)
 
         path_constraints = {}
 
@@ -238,7 +238,7 @@ def mapping_function_fc(family: AbstractFamily):
             idx = 0
             for module in arch.modules:
                 if module.type_ == "mul":
-                    path_constraints[('inst', 'mul', idx)] = hwtypes.smt_bit_vector.SMTBitVector[1](1)
+                    path_constraints[('inst', 'mul', idx)] = hwtypes.smt_bit_vector.SMTBitVector[2](1)
                     print(path_constraints)
                     idx += 1
 
