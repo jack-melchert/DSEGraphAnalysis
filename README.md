@@ -5,7 +5,7 @@ Usage:
 ```
 python dse_graph_analysis.py -f <app>_compute.json 0 1 2 … 
 ```
-<app>_compute.json must be a CoreIR compute file produced by Halide-to-Hardware (https://github.com/StanfordAHA/Halide-to-Hardware)
+```<app>_compute.json``` must be a CoreIR compute file produced by Halide-to-Hardware (https://github.com/StanfordAHA/Halide-to-Hardware)
   
 You can choose to merge subgraphs from multiple applications:
 ```
