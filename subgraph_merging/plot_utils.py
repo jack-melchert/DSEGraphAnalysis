@@ -219,8 +219,8 @@ def plot_graph(g):
         ret_g,
         pos,
         alpha=1,
-        width=3,
-        node_size=1500,
+        width=1,
+        node_size=200,
         arrows=True,
         arrowsize=15)
     nc = nx.draw_networkx_nodes(
@@ -229,9 +229,11 @@ def plot_graph(g):
         # node_list=nodes,
         node_color=colors,
         # with_labels=False,
-        node_size=1500,
+        node_size=200,
         cmap=plt.cm.Pastel1,
         alpha=1)
-    nx.draw_networkx_labels(ret_g, pos, labels)
+    nx.draw_networkx_labels(ret_g, pos, labels, font_size=4)
 
-    plt.show()
+    
+
+    plt.savefig('merged_graph.png', dpi=500)

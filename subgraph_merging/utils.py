@@ -17,25 +17,19 @@ import subgraph_merging.config as config
 from .subgraph import Subgraph, DSESubgraph
 
 
-def read_subgraphs(file_ind_pairs):
+def read_subgraphs(files):
     graphs = []
     graphs_sizes = {}
-    name_mappings = []
+    name_mappings = {}
 
-    for subgraph_file, inds in file_ind_pairs.items():
+    for subgraph_file in files:
         with open(subgraph_file) as file:
             lines = file.readlines()
 
-        graph_ind = -1
-        graphs_per_file = []
+        graph = nx.MultiDiGraph()
+
         for line in lines:
-            if ':' in line:
-                graph_ind += 1
-                graphs_per_file.append(nx.MultiDiGraph())
-                graphs_sizes[graph_ind] = 0
-                name_mapping = {}
-                name_mappings.append(name_mapping)
-            elif 'v' in line:
+            if 'v' in line:
                 op_in = config.op_types[line.split()[2]]
                 if op_in != "none":
                     if op_in == "and" or  op_in == "or" or op_in == "xor":
@@ -56,22 +50,16 @@ def read_subgraphs(file_ind_pairs):
                         op = line.split()[2]
                     if op in config.op_types_flipped:
                         op = config.op_types_flipped[op]
-                    graphs_per_file[graph_ind].add_node(
-                        line.split()[1], op=op, op_config=[line.split()[2]])
-                    graphs_sizes[graph_ind] += config.weights[op_in]
-                    name_mappings[graph_ind][line.split()[1]] = str(config.node_counter)
+                    graph.add_node(line.split()[1], op=op, op_config=[line.split()[2]])
+                    name_mappings[line.split()[1]] = str(config.node_counter)
                     config.node_counter += 1
  
             elif 'e' in line:
-                graphs_per_file[graph_ind].add_edge(
-                    line.split()[1], line.split()[2], port=line.split()[3], regs=0)
+                graph.add_edge(line.split()[1], line.split()[2], port=line.split()[3], regs=0)
 
-        relabeled_graphs = []
-        for ind, graph in enumerate(graphs_per_file):
-            relabeled_graphs.append(nx.relabel_nodes(graph, name_mappings[ind]))
 
-        sorted_graphs = sorted(graphs_sizes.items(), key=lambda x: x[1], reverse=True)
-        graphs += [relabeled_graphs[i[0]] for i in sorted_graphs if i[0] in inds]
+        relabeled_graph = nx.relabel_nodes(graph, name_mappings)
+        graphs.append(relabeled_graph)
 
     subgraphs = []
     for ind, graph in enumerate(graphs):

@@ -17,21 +17,21 @@ def convert_coreir_to_dot(coreir_files):
     dot_files = [os.path.basename(f).replace(".json", ".dot") for f in coreir_files]
 
     op_types = {}
-    op_types["self"] = "0"
+#    op_types["self"] = "0"
     instance_names = {}
     used_ops = set()
     unsupported_ops = set()
 
-    op_index = 1
+    op_index = 0
 
-    op = "bitconst"
-    used_ops.add("bitconst")
-    op_types[op] = op_index
-    op_index += 1
-    op = "sge"
-    used_ops.add("sge")
-    op_types[op] = op_index
-    op_index += 1
+#    op = "bitconst"
+#    used_ops.add("bitconst")
+#    op_types[op] = op_index
+#    op_index += 1
+#    op = "sge"
+#    used_ops.add("sge")
+#    op_types[op] = op_index
+#    op_index += 1
    
     for ind, f in enumerate(coreir_files):
         
@@ -39,9 +39,9 @@ def convert_coreir_to_dot(coreir_files):
         out_file = open('.temp/' + dot_files[ind], 'w')
 
         inst_ind = 1
-        instance_names["self"] = 0
+#        instance_names["self"] = 0
         out_file.write('t # 1\n')
-        out_file.write('v ' + str(0) + ' ' + '0' + '\n')
+#        out_file.write('v ' + str(0) + ' ' + '0' + '\n')
 
         c = coreir.Context()
         c.load_library("commonlib")
@@ -50,48 +50,51 @@ def convert_coreir_to_dot(coreir_files):
         dot = Digraph()
         wired_self = False
 
-        for kname, kmod in kernels.items():
-            for inst in kmod.definition.instances:
-                namespace = inst.module.namespace.name
-                op = inst.module.name
-                if namespace == 'corebit':
-                    op = f"bit{op}"
-                dot.node(inst.name, op)
-                if op in config.supported_ops:
-                    used_ops.add(op)
-                    if op not in op_types:
-                        op_types[op] = op_index
-                        op_index += 1
-                    out_file.write('v ' + str(inst_ind) + ' ' + str(op_types[op]) + '\n')
-                    instance_names[inst.name] = inst_ind
-                    inst_ind += 1
-                else:
-                    unsupported_ops.add(op)
+        kname = cmod.name 
+        kmod = kernels[kname]
+        for inst in kmod.definition.instances:
+            namespace = inst.module.namespace.name
+            op = inst.module.name
+            if namespace == 'corebit':
+                op = f"bit{op}"
+            dot.node(inst.name, op)
+            if op in config.supported_ops:
+                used_ops.add(op)
+                if op not in op_types:
+                    op_types[op] = op_index
+                    op_index += 1
+                out_file.write('v ' + str(inst_ind) + ' ' + str(op_types[op]) + '\n')
+                instance_names[inst.name] = inst_ind
+                inst_ind += 1
+            else:
+                unsupported_ops.add(op)
 
-        for kname, kmod in kernels.items():
-            for conn in kmod.definition.connections:
+        for conn in kmod.definition.connections:
 
-                if conn.first.type.is_input():
-                    assert(conn.second.type.is_output())
-                    source = conn.second.selectpath
-                    sink = conn.first.selectpath
-                else:
-                    assert(conn.first.type.is_output())
-                    assert(conn.second.type.is_input())
-                    source = conn.first.selectpath
-                    sink = conn.second.selectpath
+            if conn.first.type.is_input():
+                assert(conn.second.type.is_output())
+                source = conn.second.selectpath
+                sink = conn.first.selectpath
+            else:
+                assert(conn.first.type.is_output())
+                assert(conn.second.type.is_input())
+                source = conn.first.selectpath
+                sink = conn.second.selectpath
 
-                # if source[0] == "self" and not wired_self:
-                #     wired_self = True
-                #     dot.edge(source[0], sink[0])
+            # if source[0] == "self" and not wired_self:
+            #     wired_self = True
+            #     dot.edge(source[0], sink[0])
 
-                if source[0] != "self":
-                    dot.edge(source[0], sink[0])
-                    if source[0] in instance_names and sink[0] in instance_names:
-                        if sink[0] != "self":
-                            out_file.write('e ' + str(instance_names[source[0]]) + ' ' + str(instance_names[sink[0]]) + ' ' + sink[1].replace('in', '').replace('sel', '2') +'\n')
-                        else:
-                            out_file.write('e ' + str(instance_names[source[0]]) + ' ' + str(instance_names[sink[0]]) + ' 0' +'\n')
+            # if source[0] != "self":
+            dot.edge(source[0], sink[0])
+            if source[0] in instance_names and sink[0] in instance_names:
+                # if sink[0] != "self":\
+                port = sink[1].replace('in', '').replace('sel', '2')
+                if port == "":
+                    port = '0'
+                out_file.write('e ' + str(instance_names[source[0]]) + ' ' + str(instance_names[sink[0]]) + ' ' + port +'\n')
+                    # else:
+                        # out_file.write('e ' + str(instance_names[source[0]]) + ' ' + str(instance_names[sink[0]]) + ' 0' +'\n')
                     
 
     with open('.temp/op_types.txt', 'wb') as op_types_out_file:

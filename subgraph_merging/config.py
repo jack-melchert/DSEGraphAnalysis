@@ -4,7 +4,7 @@ supported_ops =  {"mul", "mult_middle", "const", "not", "and", "or", "xor", "shl
                     "slt", "sgt", "ult", "ugt", "smax", "smin", \
                     "umax", "umin", "absd", "abs", \
                     "bitnot", "bitconst", "bitand", "bitor", "bitxor", "bitmux", \
-                    "floatadd", "floatsub", "floatmul"}
+                    "floatadd", "floatsub", "floatmul", "MEM", "reg"}
 
 bit_input_ops = {"bitand", "bitor", "bitxor", "bitnot", "bitmux"}
 
@@ -36,7 +36,7 @@ weights = {"const":1, "bitconst":1, "and":1, "or":1, "xor":1, "shl":1, "lshr":1,
     "sle":1, "sge":1, "ule":1, "uge":1, "eq":1, "slt":1, "sgt":1, "ult":1, "ugt":1, 
     "smax":2, "smin":2, "umax":2, "umin":2, "absd":4, "abs":3, "mul":1, "mult_middle":1000, "mux":1,
     "bitand":1, "bitor":1, "bitxor":1, "bitnot":1, "bitmux":1, "floatadd":1, "floatsub":1, "floatmul":1, "bit_alu":1,
-    "gte":1, "lte":1, "sub":1, "shr":1}
+    "gte":1, "lte":1, "sub":1, "shr":1, "MEM":1, "reg":1}
 
 
 # op_area = {"const":12, "bitconst":1000, "and":1000, "or":1000, "xor":1000, "shl":1000, "lshr":1000, "ashr":1000, "add":1000, "sub":1000,
@@ -126,7 +126,7 @@ op_bitwidth = {"const": [], "bitconst": [], "and": [16, 16], "or": [16, 16], "xo
     "sle": [16, 16], "sge": [16, 16], "ule": [16, 16], "uge": [16, 16], "eq": [16, 16], "slt": [16, 16], "sgt": [16, 16], "ult": [16, 16], "ugt": [16, 16], 
     "smax": [16, 16], "smin": [16, 16], "umax": [16, 16], "umin": [16, 16], "absd": [16, 16], "abs": [16, 16], "mul": [16, 16], "mult_middle": [16, 16], "mux": [16, 16, 1],
     "bitand": [1, 1, 1], "bitor": [1, 1, 1], "bitxor": [1, 1, 1], "bitnot": [1, 1, 1], "bitmux": [1, 1, 1], "floatadd": [16, 16], "floatsub": [16, 16], "floatmul": [16, 16], "bit_alu": [16, 16],
-    "gte": [16, 16], "lte": [16, 16], "sub": [16, 16], "shr": [16, 16]}
+    "gte": [16, 16], "lte": [16, 16], "sub": [16, 16], "shr": [16, 16], "MEM":[16,16,16,16,16], "reg": [16]}
 
 op_types = []
 op_types_flipped = []
