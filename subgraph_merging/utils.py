@@ -333,47 +333,9 @@ def sort_modules(modules, subgraph):
 
 def construct_eq(in0, in1, op, absd_count, in2=""):
 
-    op_str_map = {}
-
-    op_str_map["mul"] = "Data(UInt(in_0) * UInt(in_1))"
-    op_str_map["mult_middle"] = "(Data32(in_0) * Data32(in_1))[8:24]"
-    op_str_map["not"] = "Data(~UInt(in_0))"
-    op_str_map["and"] = "Data(UInt(in_0) & UInt(in_1))"
-    op_str_map["or"] = "Data(UInt(in_0) | UInt(in_1))"
-    op_str_map["xor"] = "Data(UInt(in_0) ^ UInt(in_1))"
-    op_str_map["shl"] = "Data(UInt(in_0) << UInt(in_1))"
-    op_str_map["lshr"] = "Data(UInt(in_0) >> UInt(in_1))"
-    op_str_map["ashr"] = "Data(SInt(in_0) >> SInt(in_1))"
-    op_str_map["neg"] = "Data(-UInt(in_0))"
-    op_str_map["add"] = "Data(UInt(in_0) + UInt(in_1))"
-    op_str_map["sub"] = "Data(UInt(in_0) - UInt(in_1))"
-    op_str_map["sle"] = "Bit(SInt(in_0) <= SInt(in_1))"
-    op_str_map["sge"] = "Bit(SInt(in_0) >= SInt(in_1))"
-    op_str_map["ule"] = "Bit(UInt(in_0) <= UInt(in_1))"
-    op_str_map["uge"] = "Bit(UInt(in_0) >= UInt(in_1))"
-    op_str_map["eq"] = "Bit(UInt(in_0) == UInt(in_1))"
-    op_str_map["slt"] = "Bit(SInt(in_0) < SInt(in_1))"
-    op_str_map["sgt"] = "Bit(SInt(in_0) > SInt(in_1))"
-    op_str_map["ult"] = "Bit(UInt(in_0) < UInt(in_1))"
-    op_str_map["ugt"] = "Bit(UInt(in_0) > UInt(in_1))"
-    op_str_map["mux"] = "Data(in_2.ite(UInt(in_1),UInt(in_0)))"
-    op_str_map["umax"] = "Data((UInt(in_0) >= UInt(in_1)).ite(UInt(in_0), UInt(in_1)))"
-    op_str_map["umin"] = "Data((UInt(in_0) <= UInt(in_1)).ite(UInt(in_0), UInt(in_1)))"
-    op_str_map["smax"] = "Data((SInt(in_0) >= SInt(in_1)).ite(SInt(in_0), SInt(in_1)))"
-    op_str_map["smin"] = "Data((SInt(in_0) <= SInt(in_1)).ite(SInt(in_0), SInt(in_1)))"
-    op_str_map["abs"] = "Data((SInt(in_0) >= SInt(0)).ite(SInt(in_0), SInt(in_0)*SInt(-1)))"
-    op_str_map["bitand"] = "Bit(Bit(in_0) & Bit(in_1))"
-    op_str_map["bitnot"] = "Bit(~in0)" 
-    op_str_map["bitor"] = "Bit(Bit(in_0) | Bit(in_1))"
-    op_str_map["bitxor"] = "Bit(Bit(in_0) ^ Bit(in_1))"
-    op_str_map["bitmux"] = "Bit(in_2.ite(Bit(in_1), Bit(in_0)))"
-    op_str_map["floatmul"] = "Data(UInt(in_0) * UInt(in_1))"
-    op_str_map["floatadd"] = "Data(UInt(in_0) + UInt(in_1))"
-    op_str_map["floatsub"] = "Data(UInt(in_0) - UInt(in_1))"
-
     sub = "sub" + str(absd_count)
 
-    op_str_map["absd"] = "Data((" + sub + " >= SInt(0)).ite(" + sub + ", (SInt(-1)*" + sub + ")))"
+    config.op_str_map["absd"] = "Data((" + sub + " >= SInt(0)).ite(" + sub + ", (SInt(-1)*" + sub + ")))"
 
     if op == "absd":
         absd_str = sub + " = SInt(in_0 - in_1); "
@@ -381,7 +343,7 @@ def construct_eq(in0, in1, op, absd_count, in2=""):
     else:
         absd_str = ""
 
-    return op_str_map[op].replace("in_0", in0).replace("in_1", in1).replace(
+    return config.op_str_map[op].replace("in_0", in0).replace("in_1", in1).replace(
         "in_2", in2), absd_str.replace("in_0", in0).replace("in_1", in1), absd_count
 
 

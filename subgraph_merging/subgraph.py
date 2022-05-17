@@ -250,7 +250,8 @@ def mapping_function_fc(family: AbstractFamily):
             print("Solving...")
             ir_mapper = arch_mapper.process_ir_instruction(peak_eq.mapping_function_fc, simple_formula=False)
             start = time.time()
-            solution = ir_mapper.solve('z3', external_loop=True, itr_limit=80, logic=QF_BV)
+            solution = ir_mapper.solve('btor', external_loop=True, itr_limit=80, logic=QF_BV)
+            # solution = ir_mapper.solve('z3')
             end = time.time()
             print("Rewrite rule solving time:", end-start)
         else:
@@ -271,7 +272,9 @@ def mapping_function_fc(family: AbstractFamily):
         else:
             utils.print_green("Found rewrite rule")
             self.rewrite_rule = solution
-            for i in solution.ibinding: print(i)
+            counter_ex = solution.verify()
+            assert counter_ex == None
+            #for i in solution.ibinding: print(i)
 
     def write_rewrite_rule(self, filename: str):
         if not hasattr(self, "rewrite_rule"):

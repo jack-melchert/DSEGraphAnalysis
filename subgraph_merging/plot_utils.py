@@ -87,13 +87,18 @@ def plot_compatibility_graph(g1, g2, gb, gc, index):
     # Update position for node from each group
     pos.update((node, (1, index)) for index, node in enumerate(left))
     pos.update((node, (2, index)) for index, node in enumerate(right))
+    labels = {
+        n: str(n).replace('/', ',')
+        for n, d in plot_gb.nodes(data=True)
+    }
 
     nx.draw_networkx(
         plot_gb,
         node_color=plt.cm.Pastel1(2),
-        node_size=1500,
+        node_size=3000,
         pos=pos,
-        width=3,ax=axes[2])
+        width=3,ax=axes[2],
+        labels=labels)
     axes[2].margins(0.2)
 
     plot_gc = gc.copy()
@@ -113,32 +118,35 @@ def plot_compatibility_graph(g1, g2, gb, gc, index):
         width=3,
         labels=labels,ax=axes[3])
     plt.margins(0.2)
-    # plt.show()
-    plt.savefig(f"comp_graph_{index}.png")
+    plt.show()
+    # plt.savefig(f"comp_graph_{index}.png")
 
 
 
 def plot_max_weight_clique(gc, widths):
     plot_gc = gc.copy()
 
-    for n, d in plot_gc.copy().nodes.data(True):
-        if d["in_or_out"]:
-            plot_gc.remove_node(n)
+    # for n, d in plot_gc.copy().nodes.data(True):
+    #     if d["in_or_out"]:
+    #         plot_gc.remove_node(n)
 
     plt.subplot(1, 2, 1)
     starts = nx.get_node_attributes(plot_gc, 'start')
     ends = nx.get_node_attributes(plot_gc, 'end')
     weights = nx.get_node_attributes(plot_gc, 'weight')
-    labels = {
-        n: d + "/" + ends[n] + "\n" + str(weights[n])
-        for n, d in starts.items()
-    }
+    labels = {}
+    for n, d in starts.items():
+        if '/' in str(d):
+            labels[n] = f"{str(d).replace('/', ',')}/\n{str(ends[n]).replace('/', ',')}\nw = {str(weights[n])}"
+        else:
+            labels[n] = f"{str(d)}/{str(ends[n])}\nw = {str(weights[n])}"
+
     pos = nx.drawing.layout.spring_layout(plot_gc)
     nx.draw_networkx(
         plot_gc,
         pos,
         node_color=plt.cm.Pastel1(2),
-        node_size=1500,
+        node_size=5000,
         width=3,
         labels=labels)
     plt.margins(0.2)
@@ -147,10 +155,11 @@ def plot_max_weight_clique(gc, widths):
     starts = nx.get_node_attributes(plot_gc, 'start')
     ends = nx.get_node_attributes(plot_gc, 'end')
     weights = nx.get_node_attributes(plot_gc, 'weight')
-    labels = {
-        n: d + "/" + ends[n] + "\n" + str(weights[n])
-        for n, d in starts.items()
-    }
+    for n, d in starts.items():
+        if '/' in str(d):
+            labels[n] = f"{str(d).replace('/', ',')}/\n{str(ends[n]).replace('/', ',')}\nw = {str(weights[n])}"
+        else:
+            labels[n] = f"{str(d)}/{str(ends[n])}\nw = {str(weights[n])}"
 
     colors = [plt.cm.Pastel1(widths[n]) for n in plot_gc.nodes()]
 
@@ -158,7 +167,7 @@ def plot_max_weight_clique(gc, widths):
         plot_gc,
         pos,
         node_color=colors,
-        node_size=1500,
+        node_size=5000,
         width=3,
         labels=labels)
     plt.margins(0.2)

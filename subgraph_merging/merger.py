@@ -228,6 +228,8 @@ class Merger():
             else:
                 widths.append(2)
 
+
+        # plot_max_weight_clique(gc, widths)
         return C
 
     def reconstruct_merged_graph(self, c: nx.MultiDiGraph, g0: nx.MultiDiGraph, g1: nx.MultiDiGraph):
@@ -276,6 +278,7 @@ class Merger():
         merged_graph = self.subgraphs[0]
         for idx, subgraph in enumerate(self.subgraphs[1:]):
             merged_graph = self.merge_subgraphs(merged_graph.subgraph, subgraph.subgraph, idx)
+            plot_graph(merged_graph.subgraph)
 
         self.set_merged_graph(merged_graph)
 

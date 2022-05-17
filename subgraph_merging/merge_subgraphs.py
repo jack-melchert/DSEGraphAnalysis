@@ -49,12 +49,17 @@ def merge_subgraphs(file_ind_pairs, pipeline):
         graph.write_peak_eq("outputs/peak_eqs/peak_eq_" + str(sub_idx) + ".py")
         mul_ops.append(graph.contains_mul())
 
-
-
     print("Generating rewrite rules")
     merger.generate_rewrite_rules(mul_ops)
     merger.write_rewrite_rules()
 
+
+    # Really bad hack, remove later
+    config.op_str_map["mult_middle"] = "Data(UInt(in_0) ^ UInt(in_1))"
+    for sub_idx, graph in enumerate(subgraphs):
+        graph.generate_peak_eq()
+        graph.write_peak_eq("outputs/peak_eqs/peak_eq_" + str(sub_idx) + ".py")
+        mul_ops.append(graph.contains_mul())
 
     if pipeline > 0:
         merger.merged_graph.pipeline(pipeline)

@@ -39,17 +39,6 @@ weights = {"const":1, "bitconst":1, "and":1, "or":1, "xor":1, "shl":1, "lshr":1,
     "gte":1, "lte":1, "sub":1, "shr":1}
 
 
-# op_area = {"const":12, "bitconst":1000, "and":1000, "or":1000, "xor":1000, "shl":1000, "lshr":1000, "ashr":1000, "add":1000, "sub":1000,
-#     "sle":1000, "sge":1000, "ule":1000, "uge":1000, "eq":1000, "slt":1000, "sgt":1000, "ult":1000, "ugt":1000, 
-#     "smax":1000, "smin":1000, "umax":1000, "umin":1000, "absd":1000, "abs":1000, "mul":2030, "mux":30,
-#     "bitand":13, "bitor":13, "bitxor":13, "bitnot":13, "bitmux":13, "floatadd":1000, "floatsub":1000, "floatmul":1000, "bit_alu":1000,
-#     "gte":1000, "lte":1000, "sub":1000, "shr":1000}
-
-# op_timing = {"const":12, "bitconst":100, "and":100, "or":100, "xor":100, "shl":100, "lshr":100, "ashr":100, "add":100, "sub":100,
-#     "sle":100, "sge":100, "ule":100, "uge":100, "eq":100, "slt":100, "sgt":100, "ult":100, "ugt":100, 
-#     "smax":100, "smin":100, "umax":100, "umin":100, "absd":100, "abs":100, "mul":200, "mux":30,
-#     "bitand":13, "bitor":13, "bitxor":13, "bitnot":13, "bitmux":13, "floatadd":100, "floatsub":100, "floatmul":100, "bit_alu":100,
-#     "gte":100, "lte":100, "sub":100, "shr":100}
 
 op_costs = {
 "add":	{"crit_path": 0.33, "area": 117.04, "energy": 96.62},
@@ -132,3 +121,43 @@ op_types = []
 op_types_flipped = []
 
 node_counter = 0
+
+
+op_str_map = {}
+
+op_str_map["mul"] = "Data(UInt(in_0) * UInt(in_1))"
+op_str_map["mult_middle"] = "(Data32(in_0) * Data32(in_1))[8:24]"
+# op_str_map["mult_middle"] = "Data(UInt(in_0) ^ UInt(in_1))"
+op_str_map["not"] = "Data(~UInt(in_0))"
+op_str_map["and"] = "Data(UInt(in_0) & UInt(in_1))"
+op_str_map["or"] = "Data(UInt(in_0) | UInt(in_1))"
+op_str_map["xor"] = "Data(UInt(in_0) ^ UInt(in_1))"
+op_str_map["shl"] = "Data(UInt(in_0) << UInt(in_1))"
+op_str_map["lshr"] = "Data(UInt(in_0) >> UInt(in_1))"
+op_str_map["ashr"] = "Data(SInt(in_0) >> SInt(in_1))"
+op_str_map["neg"] = "Data(-UInt(in_0))"
+op_str_map["add"] = "Data(UInt(in_0) + UInt(in_1))"
+op_str_map["sub"] = "Data(UInt(in_0) - UInt(in_1))"
+op_str_map["sle"] = "Bit(SInt(in_0) <= SInt(in_1))"
+op_str_map["sge"] = "Bit(SInt(in_0) >= SInt(in_1))"
+op_str_map["ule"] = "Bit(UInt(in_0) <= UInt(in_1))"
+op_str_map["uge"] = "Bit(UInt(in_0) >= UInt(in_1))"
+op_str_map["eq"] = "Bit(UInt(in_0) == UInt(in_1))"
+op_str_map["slt"] = "Bit(SInt(in_0) < SInt(in_1))"
+op_str_map["sgt"] = "Bit(SInt(in_0) > SInt(in_1))"
+op_str_map["ult"] = "Bit(UInt(in_0) < UInt(in_1))"
+op_str_map["ugt"] = "Bit(UInt(in_0) > UInt(in_1))"
+op_str_map["mux"] = "Data(in_2.ite(UInt(in_1),UInt(in_0)))"
+op_str_map["umax"] = "Data((UInt(in_0) >= UInt(in_1)).ite(UInt(in_0), UInt(in_1)))"
+op_str_map["umin"] = "Data((UInt(in_0) <= UInt(in_1)).ite(UInt(in_0), UInt(in_1)))"
+op_str_map["smax"] = "Data((SInt(in_0) >= SInt(in_1)).ite(SInt(in_0), SInt(in_1)))"
+op_str_map["smin"] = "Data((SInt(in_0) <= SInt(in_1)).ite(SInt(in_0), SInt(in_1)))"
+op_str_map["abs"] = "Data((SInt(in_0) >= SInt(0)).ite(SInt(in_0), SInt(in_0)*SInt(-1)))"
+op_str_map["bitand"] = "Bit(Bit(in_0) & Bit(in_1))"
+op_str_map["bitnot"] = "Bit(~in0)" 
+op_str_map["bitor"] = "Bit(Bit(in_0) | Bit(in_1))"
+op_str_map["bitxor"] = "Bit(Bit(in_0) ^ Bit(in_1))"
+op_str_map["bitmux"] = "Bit(in_2.ite(Bit(in_1), Bit(in_0)))"
+op_str_map["floatmul"] = "Data(UInt(in_0) * UInt(in_1))"
+op_str_map["floatadd"] = "Data(UInt(in_0) + UInt(in_1))"
+op_str_map["floatsub"] = "Data(UInt(in_0) - UInt(in_1))"
