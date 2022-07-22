@@ -105,6 +105,7 @@ def convert_coreir_to_dot(coreir_files):
     dot.render(f'pdf/{dot_files[ind]}', view=False)  
     print("Used ops:", used_ops)
     print("Unsupported ops:", unsupported_ops)
+
     # for ind, f in enumerate(coreir_files):
         
     #     print(f)

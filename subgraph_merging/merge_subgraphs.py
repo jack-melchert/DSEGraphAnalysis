@@ -30,8 +30,6 @@ def merge_subgraphs(file_ind_pairs, pipeline):
 
     utils.add_primitive_ops(subgraphs)
 
-    print("Generating peak_eqs")
-
     for sub_idx, graph in enumerate(subgraphs):
         graph.add_input_and_output_nodes()
 
