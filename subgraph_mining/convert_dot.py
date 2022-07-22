@@ -30,7 +30,7 @@ def convert_coreir_to_dot(coreir_files):
     for ind, f in enumerate(coreir_files):
         
         print(f)
-        graph = nx.Graph(nx.nx_pydot.read_dot(f))
+        graph = nx.DiGraph(nx.nx_pydot.read_dot(f))
         out_file = open('.temp/' + dot_files[ind], 'w')
 
         inst_ind = 0
