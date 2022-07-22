@@ -15,11 +15,10 @@ def sort_subgraph_list(input_filename, output_filename, max_ind_set_size):
             out_text.append(line)
         elif graph_num >= 0:
             if line[0] == 'v':
-                if line.split(" ")[2][0] != '0':
-                    out_text[graph_num] += line
+                out_text[graph_num] += line
             elif line[0] == 'e':
-                if line.split(" ")[3][0] != '5':
-                    out_text[graph_num] += line
+                out_text[graph_num] += line
+
 
     inds = sorted(max_ind_set_size.items(), key=lambda x: x[1][2], reverse=True)
     # breakpoint()
@@ -49,7 +48,7 @@ def grami_subgraph_mining(input_file, subgraph_inds):
     else:
         max_subgraph = max(max(subgraph_inds), 20)
         
-    support = 40 # Starting support number
+    support = 10 # Starting support number
 
     print("Starting GraMi subgraph mining...")
     
