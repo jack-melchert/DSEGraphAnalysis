@@ -43,4 +43,3 @@ def graph_output(dot_file, output_filename, max_ind_set_stats = None):
         os.makedirs('pdf')
     graph.render("pdf/" + output_filename, view=False)
 
-    print(node_count)

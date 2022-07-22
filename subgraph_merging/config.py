@@ -39,6 +39,25 @@ weights = {"const":1, "bitconst":1, "and":1, "or":1, "xor":1, "shl":1, "lshr":1,
     "gte":1, "lte":1, "sub":1, "shr":1}
 
 
+# op_costs = {
+# "add":	{"crit_path": , "area": 68.383, "energy": },
+# "sub":	{"crit_path": , "area": 53.666, "energy": },
+# "bit_alu":	{"crit_path": , "area": , "energy": },
+# "gte":	{"crit_path": , "area": , "energy": },
+# "shl":	{"crit_path": , "area": , "energy": },
+# "shr":	{"crit_path": , "area": 127.935, "energy": },
+# "mul":	{"crit_path": , "area": 537.627, "energy": },
+# "mult_middle":	{"crit_path": , "area": , "energy": },
+# "lte":	{"crit_path": , "area": 59.835, "energy": },
+# "alu":	{"crit_path": , "area": , "energy": },
+# "abs":	{"crit_path": , "area": , "energy": },
+# "absd":	{"crit_path": , "area": , "energy": },
+# "float_alu":	{"crit_path": , "area": , "energy": },
+# "const":	{"crit_path": , "area":  , "energy": }
+# "bitconst":	{"crit_path": , "area":  , "energy": }
+# "lut":	{"crit_path": , "area": , "energy": },
+# "mux":	{"crit_path": , "area":  , "energy": }
+# }
 
 op_costs = {
 "add":	{"crit_path": 0.33, "area": 117.04, "energy": 96.62},
