@@ -46,7 +46,7 @@ def grami_subgraph_mining(input_file, subgraph_inds):
     if len(subgraph_inds) == 0:
         max_subgraph = 1
     else:
-        max_subgraph = max(max(subgraph_inds), 20)
+        max_subgraph = max(subgraph_inds)
         
     support = 10 # Starting support number
 

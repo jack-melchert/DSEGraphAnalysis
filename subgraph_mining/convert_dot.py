@@ -42,7 +42,7 @@ def convert_coreir_to_dot(coreir_files):
 
         for node in graph.nodes(data=True):
 
-            op = node[1]['comment'].split("type=")[1].split(",")[0]
+            op = node[1]['hwnode'].strip('\"')
 
             dot.node(node[0], f"{node[0]}\n{op}")
 
