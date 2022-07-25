@@ -6,7 +6,7 @@ import sys
 import matplotlib.pyplot as plt
 import pdb
 from networkx.algorithms import isomorphism
-
+import pickle
 
 def node_match(n1, n2):
     return n1["type"] == n2["type"]
@@ -15,6 +15,10 @@ def node_match(n1, n2):
 def find_maximal_independent_set(filename, sub_filename):
     with open(filename) as file:
         lines = file.readlines()
+
+    with open(".temp/op_types.txt", "rb") as file:
+        op_types = pickle.load(file)
+    op_types = {str(v): k for k, v in op_types.items()}
 
     graph = nx.DiGraph()
     for line in lines:
@@ -36,8 +40,8 @@ def find_maximal_independent_set(filename, sub_filename):
             graphs.append(nx.DiGraph())
         elif 'v' in line:
             rg.add_nodes_from(graphs[graph_ind], [(line.split()[1], {"type": line.split()[2]})])
-            # if line.split()[2] == '0':
-            #     invalid_graphs.append(graph_ind)
+            if "Buffet" in op_types[line.split()[2]]:
+                invalid_graphs.append(graph_ind)
         elif 'e' in line:
             rg.add_edges_from(graphs[graph_ind], [(line.split()[1], line.split()[2])])
 
