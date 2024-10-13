@@ -234,12 +234,12 @@ def mapping_function_fc(family: AbstractFamily):
         path_constraints = {}
 
         if not mul_op:
-            print("Datagating multipliers")
+            #print("Datagating multipliers")
             idx = 0
             for module in arch.modules:
                 if module.type_ == "mul":
                     path_constraints[('inst', 'mul', idx)] = hwtypes.smt_bit_vector.SMTBitVector[2](1)
-                    print(path_constraints)
+                    #print(path_constraints)
                     idx += 1
 
         # arch_mapper = ArchMapper(PE_fc, path_constraints = path_constraints, input_constraints = input_constraints)
@@ -271,7 +271,7 @@ def mapping_function_fc(family: AbstractFamily):
         else:
             utils.print_green("Found rewrite rule")
             self.rewrite_rule = solution
-            for i in solution.ibinding: print(i)
+            #for i in solution.ibinding: print(i)
 
     def write_rewrite_rule(self, filename: str):
         if not hasattr(self, "rewrite_rule"):

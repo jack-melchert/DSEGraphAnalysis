@@ -13,3 +13,4 @@ jsonpickle
 -e git+https://github.com/Kappa-Dev/ReGraph#egg=regraph
 delegator.py
 pytest
+greenery==2.0
