@@ -1,4 +1,4 @@
-# DSEGraphAnalysis
+# APEX
 Subgraph mining, maximal independent set analysis, and graph merging flow for coreir graphs produced from Halide Applications. Use in the PE design space exploration project to identify potential interesting candidate PE architectures.
 
 Usage:
