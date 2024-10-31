@@ -13,6 +13,7 @@ def main():
     parser.add_argument('-c', '--cached', help='Use cached subgraphs', action="store_true", default=False)
     parser.add_argument('-f', '--files', nargs='+', metavar=("file", "subgraph_index"),help='Application files for analysis', action='append')
     parser.add_argument('-p', '--pipeline', help="Number of pipelining stages", type=int, default = 0)
+    parser.add_argument('--subgraph-mining-only', help='Subgraph mining only', action="store_true", default=False)
 
     args = parser.parse_args()
 
@@ -75,9 +76,10 @@ def main():
         dot_files = [".temp/" + os.path.basename(f).replace(".json", ".dot") for f in file_names]
         for file_ind, file in enumerate(file_names):
             subgraph_file_ind_pairs[dot_files[file_ind].replace(".dot", "_subgraphs.dot")] = file_ind_pairs[file]
-    
-    print("Starting subgraph merging")
-    merge_subgraphs(subgraph_file_ind_pairs, args.pipeline)
+   
+    if not args.subgraph_mining_only:
+        print("Starting subgraph merging")
+        merge_subgraphs(subgraph_file_ind_pairs, args.pipeline)
 
 if __name__ == "__main__":
     main()
