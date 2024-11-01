@@ -46,6 +46,7 @@ def convert_coreir_to_dot(coreir_files):
         c = coreir.Context()
         c.load_library("commonlib")
         cmod = c.load_from_file(f)
+        c.run_passes(["rungenerators", "flattentypes", "flatten", "deletedeadinstances"])
         kernels = dict(c.global_namespace.modules)
         dot = Digraph()
         wired_self = False
