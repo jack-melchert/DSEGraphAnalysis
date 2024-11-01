@@ -1,12 +1,8 @@
 setuptools
 pulp
--e git+https://github.com/cdonovick/peak#egg=peak
--e git+https://github.com/rdaly525/MetaMapper.git#egg=metamapper
--e git+https://github.com/leonardt/hwtypes#egg=hwtypes
 ast-tools
 cosa
 jsonpickle
--e git+https://github.com/jack-melchert/peak_generator#egg=peak-gen
 -e git+https://github.com/Kappa-Dev/ReGraph#egg=regraph
 delegator.py
 pytest
